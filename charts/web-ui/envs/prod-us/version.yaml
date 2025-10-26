@@ -1,0 +1,2 @@
+image:
+  tag: "alpine" # stable-alpine is the default
