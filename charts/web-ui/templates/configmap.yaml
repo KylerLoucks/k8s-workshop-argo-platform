@@ -5,6 +5,6 @@ metadata:
   labels:
     {{- include "web-ui.labels" . | nindent 4 }}
 data:
-  {{- range ,  := .Values.config }}
-  {{  }}: {{ tpl ( | toString) $ | quote }}
+  {{- range $key, $val := .Values.config }}
+  {{ $key }}: {{ tpl ($val | toString) $ | quote }}
   {{- end }}
