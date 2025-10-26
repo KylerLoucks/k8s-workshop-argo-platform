@@ -24,18 +24,18 @@ spec:
       #   argocd-image-updater.argoproj.io/my-api.update-strategy: digest
       #   argocd-image-updater.argoproj.io/my-api.allow-tags: regexp:^([0-9a-f]{7,40}|main)$
     spec:
-      project: dev                    # your AppProject name (per-cluster)
+      project: default
       source:
         repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
         targetRevision: main
         path: charts/{{path.basename}}            # chart source (charts/web-ui or charts/api)
         helm:
           valueFiles:
-            - charts/{{path.basename}}/values.yaml     # chart defaults (base)
-            - charts/{{path.basename}}/envs/dev-us//values.yaml   # env overlay (image tag, replicas, etc.)
+            - values.yaml
+            - envs/dev-us/values.yaml
       destination:
         server: https://kubernetes.default.svc
-        namespace: "{{path.basename}}"           # per-app namespace; adjust if you use shared ns
+        namespace: "{{path.basename}}"
       syncPolicy:
         automated:
           prune: true
