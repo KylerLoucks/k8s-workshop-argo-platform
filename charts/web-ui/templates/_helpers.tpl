@@ -3,8 +3,16 @@
 {{- end -}}
 
 {{- define "web-ui.fullname" -}}
-{{- $name := default .Chart.Name .Values.nameOverride -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := include "web-ui.name" . -}}
+{{- if hasPrefix $name .Release.Name | or (hasSuffix .Release.Name (printf "-%s" $name)) -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
 {{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "web-ui.labels" -}}
