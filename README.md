@@ -176,3 +176,28 @@ Install on prod (optional):
 kubectl --context k3d-prod create namespace argocd --dry-run=client -o yaml | kubectl --context k3d-prod apply -f -
 helm upgrade --install argo-cd argo/argo-cd -n argocd --kube-context k3d-prod --set server.service.type=ClusterIP
 ```
+
+## How env overlays and the ApplicationSet work
+
+### Chart layout and overlays
+- Base chart per app lives under `charts/<app>` (e.g., `charts/web-ui`).
+- Environment overlays live under `charts/<app>/envs/<env>/values.yaml` (e.g., `charts/web-ui/envs/dev-us/values.yaml`).
+- Helm merges overlays on top of the base `values.yaml` in order (base first, overlay later). This is where per-env replicas, resources, and ingress hosts are set.
+
+### ApplicationSet – one Application per chart
+- The `ApplicationSet` at `argocd/bootstrap/dev/applicationset.yaml` uses a Git generator with `directories: path: charts/*`.
+- For each directory under `charts/` (that is a deployable chart), the generator produces an Argo CD `Application` pointing at that chart path.
+- Each generated `Application` includes:
+  - `source.path: charts/{{path.basename}}` (e.g., `charts/web-ui`)
+  - `helm.valueFiles: [values.yaml, envs/dev-us/values.yaml]` so the env overlay is applied
+  - `destination.server: https://kubernetes.default.svc` and `destination.namespace: {{path.basename}}`
+- In effect, this is an "App-of-Apps" pattern realized through the `ApplicationSet` controller: it programmatically creates one `Application` per chart directory so you don’t maintain and update a static app-of-apps file whenever more charts are added.
+
+### Switching environments (e.g., prod-us)
+- To deploy a different overlay, change the `helm.valueFiles` in the `ApplicationSet` template:
+  - From `envs/dev-us/values.yaml` to `envs/prod-us/values.yaml`, or
+  - Create a separate `ApplicationSet` (e.g., `argocd/bootstrap/prod/applicationset.yaml`) that targets the prod overlay.
+
+### Naming note
+- Argo uses the `Application` name as the Helm release name (e.g., `dev-web-ui`).
+- The chart helpers are set up to avoid duplicate suffixes (e.g., `dev-web-ui-web-ui`). If you prefer a fixed name, set `fullnameOverride` in values or set `spec.source.helm.releaseName` in the `ApplicationSet`.
