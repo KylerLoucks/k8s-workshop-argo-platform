@@ -1,0 +1,30 @@
+replicaCount: 1
+
+image:
+  # inherit repository/tag from base unless you need to override
+  pullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  hosts:
+    - host: web-ui.dev-us.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+autoscaling:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+podAnnotations:
+  environment: dev-us
+
+config:
+  ENV_NAME: dev-us

@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: dev-apps
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
+        revision: main
+        directories:
+          - path: charts/*        # one Application per folder under envs/dev/
+  template:
+    metadata:
+      name: "dev-{{path.basename}}"  # e.g., dev-web-ui, dev-api
+      labels:
+        app.kubernetes.io/managed-by: argocd
+        env: dev
+      # annotations:
+      #   # (Optional) Argo CD Image Updater – declare images per app
+      #   # Will be resolved per app name; you can also set per Application via generators.parameters
+      #   argocd-image-updater.argoproj.io/image-list: >-
+      #     my-api=ghcr.io/your-org/my-api
+      #   argocd-image-updater.argoproj.io/my-api.update-strategy: digest
+      #   argocd-image-updater.argoproj.io/my-api.allow-tags: regexp:^([0-9a-f]{7,40}|main)$
+    spec:
+      project: dev                    # your AppProject name (per-cluster)
+      source:
+        repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
+        targetRevision: main
+        path: charts/{{path.basename}}            # chart source (charts/web-ui or charts/api)
+        helm:
+          valueFiles:
+            - charts/{{path.basename}}/values.yaml     # chart defaults (base)
+            - charts/{{path.basename}}/envs/dev-us//values.yaml   # env overlay (image tag, replicas, etc.)
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{path.basename}}"           # per-app namespace; adjust if you use shared ns
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
