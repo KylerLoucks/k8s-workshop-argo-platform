@@ -141,6 +141,33 @@ helm:
   - When ready to promote, copy the tag from lower env to higher env by copying the version file (or just its `image.tag`) from `dev-us` to `prod-us` and commit.
   - Argo CD will detect the change (via webhook or poll) and sync, deploying the new version to the target environment.
 
-### Naming note
+## Complete CI flow (Dev via Image Updater, promotions via version.yaml)
+
+- Dev environments (e.g., dev-us): Argo CD Image Updater watches your dev Application and writes back the latest image tag to the env’s `version.yaml` in Git (write-back: git). Argo then syncs dev automatically.
+- Higher environments (e.g., staging/prod): promotions are explicit. CI reads the tag from the build step and commits to the respective envs `version.yaml`
+
+### Rollbacks (simple & auditable)
+Git revert the commit that changed the `version.yaml` (UAT or Prod) → Argo CD rolls back to the prior image.
+(Optional) keep an Argo Rollouts canary/blue-green strategy for safer Prod flips.
+
+Why this pattern
+- Dev moves fast automatically; prod remains gated and predictable.
+- Only the tag file (version.yaml) changes per promotion; overlays (replicas/resources/ingress) are stable per env.
+
+Minimal GitHub Actions shape
+
+- CI: Build → Push to ECR
+- Dev CD: Image Updater bumps `charts/<app>/envs/dev-us/version.yaml` (no workflow needed; runs as its own controller) → Argo CD syncs (PreSync Hook job runs Migrations and other pre-deploy jobs for the specific app that was updated)
+- Promote: github action `environment` gates → after approval, workflow commits tag to version.yaml → Argo CD syncs
+
+
+### Manual Promotion
+Workflow Dispatch (`.github/workflows/promote.yml`) pass in  the lower env’s and higher env's name. The workflow will grab the lower env's `version.yaml` and copy it to the higher env’s `version.yaml`, then commits to the branch Argo watches. Argo detects the change and deploys.
+
+Notes
+- Ensure your ApplicationSet lists `envs/<env>/version.yaml` last in `helm.valueFiles` so it wins merges.
+- If your migration job must always match the app image, make its chart template inherit the app tag (so you only promote one tag). If you manage a separate migration image tag, also put it in `version.yaml` and have CI write both.
+- For multi-app promotions, add a matrix or run the write step for each app.
+
 - Argo uses the `Application` name as the Helm release name (e.g., `dev-web-ui`).
 - The chart helpers are set up to avoid duplicate suffixes (e.g., `dev-web-ui-web-ui`). If you prefer a fixed name, set `fullnameOverride` in values or set `spec.source.helm.releaseName` in the `ApplicationSet`.

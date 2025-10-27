@@ -1,0 +1,76 @@
+# Promote a GitOps application from one environment to the next
+name: Promote application
+
+# Controls when the workflow will run
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "app name (web-ui or my-api)"
+        required: true
+        default: "web-ui"
+      source_env:
+        description: 'Source environment'
+        required: true
+        default: 'qa-us'
+        type: choice
+        options:
+          - qa-us
+          - staging-us
+          - prod-us
+
+      target_env:
+        description: 'Target environment'
+        required: true
+        default: 'staging-us'
+        type: choice
+        options:
+          - qa-us
+          - staging-us
+          - prod-us
+
+      promote_container:
+        description: 'Promote container tag'
+        required: true
+        type: boolean
+        default: true
+
+      promote_configmaps:
+        description: 'Also promote application settings'
+        required: true
+        type: boolean
+        default: true
+
+      message:
+        description: 'Commit message'
+        required: true
+        type: string
+        default: 'Application promotion'
+
+jobs:
+  promote:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      - name: Copy container tag
+        if: ${{ inputs.promote_container }}
+        uses: canastro/copy-file-action@master
+        with:
+          source: "charts/${{ inputs.app }}/envs/${{ inputs.source_env }}/version.yml"
+          target: "charts/${{ inputs.app }}/envs/${{ inputs.target_env }}/version.yml"
+
+      - name: Copy settings
+        if: ${{ inputs.promote_configmaps }}
+        uses: canastro/copy-file-action@master
+        with:
+          source: "charts/${{ inputs.app }}/envs/${{ inputs.source_env }}/settings.yml"
+          target: "charts/${{ inputs.app }}/envs/${{ inputs.target_env }}/settings.yml"
+
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: ${{ inputs.message }}
