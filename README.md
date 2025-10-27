@@ -12,13 +12,11 @@ Verify versions:
 k3d version
 kubectl version --client
 helm version
-terraform version
 ```
 
 ## Setup k3d (first time)
 ```bash
-
-# Or create dev/prod clusters
+# Create dev/prod clusters
 k3d cluster create dev --wait
 k3d cluster create prod --wait
 
@@ -26,126 +24,52 @@ k3d cluster create prod --wait
 kubectl config get-contexts | grep k3d-
 ```
 
-## Argo CD ApplicationSet (Helm)
-
-Apply the ApplicationSet:
-
+## Quick start: install web-ui with Helm
 ```bash
-kubectl apply -n argocd -f argocd/applicationsets/environments-applicationset.yaml
-```
-
-Label cluster secrets so they map to environments:
-
-```bash
-kubectl -n argocd label secret <cluster-secret-name> environment=dev --overwrite
-kubectl -n argocd label secret <cluster-secret-name> environment=prod --overwrite
-```
-
-The ApplicationSet deploys the umbrella Helm chart in `apps/` and selects per-environment values files under `apps/values/<env>.yaml`. There is no kustomize overlay; only Helm is used.
-
-## Run locally with k3d
-
-### Prerequisites
-- k3d, kubectl, helm
-
-### Create a local cluster
-```bash
-k3d cluster create workshop --wait
-kubectl cluster-info
-```
-
-### Deploy sample apps (nginx images)
-Install individually:
-```bash
-helm upgrade --install web-ui charts/web-ui
-```
-
-### Access the apps (port-forward)
-```bash
-# In separate terminals or backgrounded
-kubectl port-forward svc/my-api 8080:80 &
-
-# Test
-curl -I http://localhost:8080/
-```
-
-### (Optional) Enable ingress
-If you want ingress, enable it at install time and expose ports on the k3d loadbalancer:
-```bash
-# recreate cluster with LB ports mapped to host
-k3d cluster delete dev || true
-k3d cluster create dev -p "80:80@loadbalancer" -p "443:443@loadbalancer" --wait
-
-helm upgrade --install web-ui charts/web-ui \
-  --set ingress.enabled=true \
-  --set ingress.hosts[0].host=web-ui.local
-```
-
-### Cleanup
-```bash
-helm uninstall web-ui || true
-k3d cluster delete dev || true
-```
-
-### Two clusters: dev and prod (k3d)
-
-Create both clusters:
-```bash
-k3d cluster create dev --wait
-k3d cluster create prod --wait
-kubectl config get-contexts | grep k3d-
-```
-
-Deploy `web-ui` to both clusters (separate namespace `web`):
-```bash
-# dev
+# Install into dev cluster, namespace web
 helm upgrade --install web-ui charts/web-ui \
   --kube-context k3d-dev \
   --namespace web \
   --create-namespace
 
-# prod
-helm upgrade --install web-ui charts/web-ui \
-  --kube-context k3d-prod \
-  --namespace web \
-  --create-namespace
-```
-
-Access each app via port-forward:
-```bash
-# dev on localhost:8081
+# Access locally
 kubectl --context k3d-dev -n web port-forward svc/web-ui 8081:80 &
-
-# prod on localhost:8082
-kubectl --context k3d-prod -n web port-forward svc/web-ui 8082:80 &
-
-# smoke test
 curl -I http://localhost:8081/
-curl -I http://localhost:8082/
 ```
 
-Clean up:
+### (Optional) Enable ingress
 ```bash
-helm --kube-context k3d-dev -n web uninstall web-ui || true
-helm --kube-context k3d-prod -n web uninstall web-ui || true
+# Recreate dev cluster with LB ports mapped to host 80/443
 k3d cluster delete dev || true
-k3d cluster delete prod || true
+k3d cluster create dev -p "80:80@loadbalancer" -p "443:443@loadbalancer" --wait
+
+# Install with ingress enabled (adjust host as needed)
+helm upgrade --install web-ui charts/web-ui \
+  --kube-context k3d-dev \
+  --namespace web \
+  --create-namespace \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host=web-ui.local
+# If required in your setup, also set: --set ingress.className=traefik
 ```
 
-## Install Argo CD + ApplicationSet on k3d (Helm)
+Note on drift/adoption
+- You can install with `helm` first and set up Argo CD later. If the Argo CD `Application` uses the same release name and namespace, Argo will adopt the existing release. If they differ, Argo will create a separate release; no drift or fighting will occur, but you may then have two instances. To keep one instance, align the release name/namespace or uninstall the manual Helm release after Argo is in place.
 
-Install Argo Helm repo:
+## Recommended: manage via Argo CD + ApplicationSet
+
+Add Argo Helm repo:
 ```bash
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update
 ```
 
-Install on dev cluster (repeat for prod by swapping context/paths):
+Install Argo CD on dev:
 ```bash
 # Namespace
 kubectl --context k3d-dev create namespace argocd --dry-run=client -o yaml | kubectl --context k3d-dev apply -f -
 
-# Argo CD (installs CRDs)
+# Argo CD (installs core CRDs)
 helm upgrade --install argo-cd argo/argo-cd \
   --namespace argocd \
   --kube-context k3d-dev \
@@ -155,9 +79,10 @@ helm upgrade --install argo-cd argo/argo-cd \
 kubectl --context k3d-dev -n argocd get pods
 ```
 
-Apply your ApplicationSet once CRDs are present:
+Apply the ApplicationSet (generates one Application per chart):
 ```bash
 kubectl --context k3d-dev -n argocd apply -f argocd/bootstrap/dev/applicationset.yaml
+kubectl --context k3d-dev -n argocd get applications
 ```
 
 Open Argo CD UI (optional):
@@ -171,10 +96,12 @@ kubectl --context k3d-dev -n argocd get secret argocd-initial-admin-secret -o js
 # Linux alternative: base64 --decode
 ```
 
-Install on prod (optional):
+Repeat for prod (optional):
 ```bash
 kubectl --context k3d-prod create namespace argocd --dry-run=client -o yaml | kubectl --context k3d-prod apply -f -
 helm upgrade --install argo-cd argo/argo-cd -n argocd --kube-context k3d-prod --set server.service.type=ClusterIP
+helm upgrade --install argo-appset argo/argocd-applicationset -n argocd --kube-context k3d-prod
+kubectl --context k3d-prod -n argocd get pods
 ```
 
 ## How env overlays and the ApplicationSet work
@@ -197,6 +124,22 @@ helm upgrade --install argo-cd argo/argo-cd -n argocd --kube-context k3d-prod --
 - To deploy a different overlay, change the `helm.valueFiles` in the `ApplicationSet` template:
   - From `envs/dev-us/values.yaml` to `envs/prod-us/values.yaml`, or
   - Create a separate `ApplicationSet` (e.g., `argocd/bootstrap/prod/applicationset.yaml`) that targets the prod overlay.
+
+### Promotions (version.yaml override)
+- We use a late-applied `version.yaml` per env to override only the image tag; it should be the last file under `helm.valueFiles` in the ApplicationSet so it wins merges.
+- Example:
+```yaml
+path: charts/{{path.basename}}            # chart source (charts/web-ui or charts/api)
+helm:
+    valueFiles: # NOTE: Later files override earlier files
+    - values.yaml              # base chart values
+    - envs/dev-us/values.yaml  # env defaults
+    - envs/dev-us/version.yaml # <-- tag/digest
+```
+
+- Promotion flow:
+  - When ready to promote, copy the tag from lower env to higher env by copying the version file (or just its `image.tag`) from `dev-us` to `prod-us` and commit.
+  - Argo CD will detect the change (via webhook or poll) and sync, deploying the new version to the target environment.
 
 ### Naming note
 - Argo uses the `Application` name as the Helm release name (e.g., `dev-web-ui`).
