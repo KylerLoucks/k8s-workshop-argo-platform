@@ -164,10 +164,14 @@ Minimal GitHub Actions shape
 ### Manual Promotion
 Workflow Dispatch (`.github/workflows/promote.yml`) pass in  the lower env’s and higher env's name. The workflow will grab the lower env's `version.yaml` and copy it to the higher env’s `version.yaml`, then commits to the branch Argo watches. Argo detects the change and deploys.
 
-Notes
+## Notes
 - Ensure your ApplicationSet lists `envs/<env>/version.yaml` last in `helm.valueFiles` so it wins merges.
 - If your migration job must always match the app image, make its chart template inherit the app tag (so you only promote one tag). If you manage a separate migration image tag, also put it in `version.yaml` and have CI write both.
 - For multi-app promotions, add a matrix or run the write step for each app.
 
 - Argo uses the `Application` name as the Helm release name (e.g., `dev-web-ui`).
 - The chart helpers are set up to avoid duplicate suffixes (e.g., `dev-web-ui-web-ui`). If you prefer a fixed name, set `fullnameOverride` in values or set `spec.source.helm.releaseName` in the `ApplicationSet`.
+
+
+## Helpful Sources
+Promotions: [promotions-between-envs](https://www.youtube.com/watch?v=lN-G9TV9Ty0)
