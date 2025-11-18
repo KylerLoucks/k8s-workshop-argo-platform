@@ -125,7 +125,7 @@ resource "argocd_application" "app_of_apps" {
 
   metadata {
     name = try(each.value.name, each.key)
-    namespace = try(each.value.namespace, "argocd")
+    # namespace = try(each.value.namespace, "argocd")
     labels = try(each.value.labels, {})
     annotations = try(each.value.annotations, {})
   }

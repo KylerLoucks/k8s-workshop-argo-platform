@@ -170,7 +170,11 @@ module "argocd" {
       insecure     = false
 
       namespaces  = []                     # or ["apps", "default"] if you want to scope
-      labels      = { environment = "prod" }
+      labels      = { 
+        environment = "prod",
+        enable_argocd = true,
+        cluster_name = "prod"
+      }
       annotations = {}
     }
   }
