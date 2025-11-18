@@ -132,17 +132,26 @@ module "argocd" {
 
   external_clusters = {
     prod = {
-      server       = "https://prod-api.example.com"
-      bearer_token = var.prod_cluster_token
-      ca_data      = var.prod_cluster_ca_pem
-      insecure     = false
-      namespaces   = ["apps", "default"]
-      labels = {
-        environment   = "prod"
-        enable_argocd = true
-        cluster_name  = "prod"
+      server     = "https://prod-api.example.com"
+      name       = "prod"
+      namespaces = ["apps", "default"]
+
+      config = {
+        bearer_token = var.prod_cluster_token
+        tls_client_config = {
+          ca_data  = var.prod_cluster_ca_pem
+          insecure = false
+        }
       }
-      annotations = {}
+
+      metadata = {
+        labels = {
+          environment   = "prod"
+          enable_argocd = true
+          cluster_name  = "prod"
+        }
+        annotations = {}
+      }
     }
   }
 }

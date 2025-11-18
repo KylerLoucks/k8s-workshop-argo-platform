@@ -39,42 +39,53 @@ locals {
 # SA + RBAC in k3d prod cluster
 ########################################
 
-resource "kubernetes_namespace" "argo_access_prod" {
-  provider = kubernetes.prod
-
-  metadata {
-    name = "argo-access"
-  }
-}
-
-resource "kubernetes_service_account_v1" "argocd_cluster_prod" {
+resource "kubernetes_service_account_v1" "argocd_manager" {
   provider = kubernetes.prod
 
   metadata {
     name      = "argocd-manager"
-    namespace = kubernetes_namespace.argo_access_prod.metadata[0].name
+    namespace = "kube-system"
   }
 
   automount_service_account_token = true
 }
 
-resource "kubernetes_cluster_role_binding_v1" "argocd_cluster_prod" {
+resource "kubernetes_cluster_role_v1" "argocd_manager" {
   provider = kubernetes.prod
 
   metadata {
-    name = "argocd-cluster-binding"
+    name = "argocd-manager-role"
+  }
+
+  rule {
+    api_groups = ["*"]
+    resources  = ["*"]
+    verbs      = ["*"]
+  }
+
+  rule {
+    non_resource_urls = ["*"]
+    verbs             = ["*"]
+  }
+}
+
+resource "kubernetes_cluster_role_binding_v1" "argocd_manager_binding" {
+  provider = kubernetes.prod
+
+  metadata {
+    name = "argocd-manager-role-binding"
   }
 
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "ClusterRole"
-    name      = "cluster-admin"
+    name      = kubernetes_cluster_role_v1.argocd_manager.metadata[0].name
   }
 
   subject {
     kind      = "ServiceAccount"
-    name      = kubernetes_service_account_v1.argocd_cluster_prod.metadata[0].name
-    namespace = kubernetes_service_account_v1.argocd_cluster_prod.metadata[0].namespace
+    name      = kubernetes_service_account_v1.argocd_manager.metadata[0].name
+    namespace = kubernetes_service_account_v1.argocd_manager.metadata[0].namespace
   }
 }
 
@@ -82,14 +93,14 @@ resource "kubernetes_cluster_role_binding_v1" "argocd_cluster_prod" {
 # ServiceAccount token secret (waits for token)
 ########################################
 
-resource "kubernetes_secret_v1" "argocd_cluster_token_prod" {
+resource "kubernetes_secret_v1" "argocd_manager_token" {
   provider = kubernetes.prod
 
   metadata {
     name      = "argocd-cluster-token"
-    namespace = kubernetes_service_account_v1.argocd_cluster_prod.metadata[0].namespace
+    namespace = kubernetes_service_account_v1.argocd_manager.metadata[0].namespace
     annotations = {
-      "kubernetes.io/service-account.name" = kubernetes_service_account_v1.argocd_cluster_prod.metadata[0].name
+      "kubernetes.io/service-account.name" = kubernetes_service_account_v1.argocd_manager.metadata[0].name
     }
   }
 
@@ -97,8 +108,8 @@ resource "kubernetes_secret_v1" "argocd_cluster_token_prod" {
   wait_for_service_account_token = true
 
   depends_on = [
-    kubernetes_service_account_v1.argocd_cluster_prod,
-    kubernetes_cluster_role_binding_v1.argocd_cluster_prod,
+    kubernetes_service_account_v1.argocd_manager,
+    kubernetes_cluster_role_binding_v1.argocd_manager_binding,
   ]
 }
 
@@ -106,23 +117,23 @@ resource "kubernetes_secret_v1" "argocd_cluster_token_prod" {
 # Read the SA token via data source
 ########################################
 
-data "kubernetes_secret_v1" "argocd_cluster_token_prod_read" {
+data "kubernetes_secret_v1" "argocd_manager_token" {
   provider = kubernetes.prod
 
   metadata {
-    name      = kubernetes_secret_v1.argocd_cluster_token_prod.metadata[0].name
-    namespace = kubernetes_secret_v1.argocd_cluster_token_prod.metadata[0].namespace
+    name      = kubernetes_secret_v1.argocd_manager_token.metadata[0].name
+    namespace = kubernetes_secret_v1.argocd_manager_token.metadata[0].namespace
   }
 
   depends_on = [
-    kubernetes_secret_v1.argocd_cluster_token_prod,
+    kubernetes_secret_v1.argocd_manager_token,
   ]
 }
 
 locals {
   # token is already a JWT string, just strip sensitivity wrapper
   prod_cluster_token = nonsensitive(
-    data.kubernetes_secret_v1.argocd_cluster_token_prod_read.data["token"]
+    data.kubernetes_secret_v1.argocd_manager_token.data["token"]
   )
 }
 
@@ -135,7 +146,7 @@ resource "bcrypt_hash" "argocd_admin" {
 }
 
 module "argocd" {
-  source  = "../modules/argocd"
+  source = "../modules/argocd"
 
   argocd = {
     name             = "argo-cd"
@@ -156,18 +167,25 @@ module "argocd" {
   # external k3d prod cluster registration
   external_clusters = {
     prod = {
-      server       = local.prod_cluster_server # server url of the cluster
-      bearer_token = local.prod_cluster_token  # token to authenticate to the cluster
-      ca_data      = local.prod_cluster_ca     # CA data of the cluster
-      insecure     = false
-
+      server     = local.prod_cluster_server # server url of the cluster
       namespaces = [] # or ["apps", "default"] if you want to scope
-      labels = {
-        environment   = "prod",
-        enable_argocd = true,
-        cluster_name  = "prod"
+
+      config = {
+        bearer_token = local.prod_cluster_token # token to authenticate to the cluster
+        tls_client_config = {
+          ca_data  = local.prod_cluster_ca # CA data of the cluster
+          insecure = false
+        }
       }
-      annotations = {}
+
+      metadata = {
+        labels = {
+          environment   = "prod"
+          enable_argocd = true
+          cluster_name  = "prod"
+        }
+        annotations = {}
+      }
     }
   }
 
@@ -197,6 +215,6 @@ module "argocd" {
   }
 
   depends_on = [
-    data.kubernetes_secret_v1.argocd_cluster_token_prod_read,
+    data.kubernetes_secret_v1.argocd_manager_token,
   ]
 }

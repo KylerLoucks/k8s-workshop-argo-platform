@@ -1,16 +1,3 @@
-terraform {
-  required_providers {
-    argocd = {
-      source  = "argoproj-labs/argocd"
-      version = "~> 7.11"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 3.0"
-    }
-  }
-}
-
 ################################################################################
 # Install ArgoCD
 ################################################################################
@@ -64,31 +51,54 @@ resource "helm_release" "argocd" {
 resource "argocd_cluster" "external" {
   for_each = var.create ? var.external_clusters : {}
 
-  server = each.value.server
-  name   = try(each.value.name, each.key)
-
-  config {
-    bearer_token = each.value.bearer_token
-    username     = try(each.value.username, null)
-    password     = try(each.value.password, null)
-
-    tls_client_config {
-      insecure  = try(each.value.insecure, false)
-      ca_data   = each.value.ca_data
-      cert_data = try(each.value.cert_data, null)
-      key_data  = try(each.value.key_data, null)
-    }
-  }
-
-  metadata {
-    labels      = try(each.value.labels, {})
-    annotations = try(each.value.annotations, {})
-  }
-
+  server     = try(each.value.server, null)
+  name       = try(each.value.name, each.key)
   namespaces = try(each.value.namespaces, [])
   project    = try(each.value.project, "default")
   shard      = try(each.value.shard, null)
+  metadata {
+    labels      = try(each.value.metadata.labels, {})
+    annotations = try(each.value.metadata.annotations, {})
+  }
 
+  dynamic "config" {
+    for_each = [each.value.config]
+    content {
+      bearer_token = try(config.value.bearer_token, null)
+      username     = try(config.value.username, null)
+      password     = try(config.value.password, null)
+
+      dynamic "tls_client_config" {
+        for_each = try(config.value.tls_client_config, null) == null ? [] : [config.value.tls_client_config]
+        content {
+          insecure    = try(tls_client_config.value.insecure, false)
+          ca_data     = try(tls_client_config.value.ca_data, null)
+          cert_data   = try(tls_client_config.value.cert_data, null)
+          key_data    = try(tls_client_config.value.key_data, null)
+          server_name = try(tls_client_config.value.server_name, null)
+        }
+      }
+
+      dynamic "aws_auth_config" {
+        for_each = try(config.value.aws_auth_config, null) == null ? [] : [config.value.aws_auth_config]
+        content {
+          cluster_name = try(aws_auth_config.value.cluster_name, null)
+          role_arn     = try(aws_auth_config.value.role_arn, null)
+        }
+      }
+
+      dynamic "exec_provider_config" {
+        for_each = try(config.value.exec_provider_config, null) == null ? [] : [config.value.exec_provider_config]
+        content {
+          api_version  = try(exec_provider_config.value.api_version, null)
+          command      = try(exec_provider_config.value.command, null)
+          args         = try(exec_provider_config.value.args, null)
+          env          = try(exec_provider_config.value.env, null)
+          install_hint = try(exec_provider_config.value.install_hint, null)
+        }
+      }
+    }
+  }
 
   depends_on = [helm_release.argocd]
 }
