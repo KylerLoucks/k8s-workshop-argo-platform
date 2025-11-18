@@ -54,32 +54,6 @@ resource "helm_release" "argocd" {
 
 }
 
-
-################################################################################
-# In-cluster (management) cluster registration via ArgoCD provider
-################################################################################
-locals {
-  cluster_name = try(var.cluster.cluster_name, "in-cluster")
-  environment  = try(var.cluster.environment, "dev")
-
-  argocd_labels = merge(
-    {
-      cluster_name  = local.cluster_name
-      environment   = local.environment
-      enable_argocd = true
-    },
-    try(var.cluster.addons, {})
-  )
-
-  argocd_annotations = merge(
-    {
-      cluster_name = local.cluster_name
-      environment  = local.environment
-    },
-    try(var.cluster.metadata, {})
-  )
-}
-
 ################################################################################
 # External clusters registered via ArgoCD provider
 ################################################################################
@@ -107,10 +81,10 @@ resource "argocd_cluster" "external" {
     annotations = try(each.value.annotations, {})
   }
 
-  namespaces  = try(each.value.namespaces, [])
-  project     = try(each.value.project, "default")
-  shard       = try(each.value.shard, null)
-  
+  namespaces = try(each.value.namespaces, [])
+  project    = try(each.value.project, "default")
+  shard      = try(each.value.shard, null)
+
 
   depends_on = [helm_release.argocd]
 }
@@ -124,30 +98,40 @@ resource "argocd_application" "app_of_apps" {
   for_each = var.create ? var.apps : {}
 
   metadata {
-    name = try(each.value.name, each.key)
-    # namespace = try(each.value.namespace, "argocd")
-    labels = try(each.value.labels, {})
+    name        = try(each.value.name, each.key)
+    namespace   = try(each.value.namespace, "argocd")
+    labels      = try(each.value.labels, {})
     annotations = try(each.value.annotations, {})
   }
 
   spec {
     project = try(each.value.project, "default")
     source {
-      repo_url = each.value.repo_url
+      repo_url        = each.value.repo_url
       target_revision = try(each.value.target_revision, "main")
-      path = each.value.path
+      path            = each.value.path
     }
     destination {
-      server = try(each.value.server, null)
+      server    = try(each.value.destination_server, null)
       namespace = try(each.value.destination_namespace, "argocd")
-      name = try(each.value.destination_name, null)
+      name      = try(each.value.destination_name, null)
     }
     sync_policy {
       automated {
-        prune = try(each.value.prune, true)
+        prune     = try(each.value.prune, true)
         self_heal = try(each.value.self_heal, true)
       }
       sync_options = try(each.value.sync_options, ["CreateNamespace=true", "ApplyOutOfSyncOnly=true", "PrunePropagationPolicy=foreground"])
+    }
+    dynamic "ignore_difference" {
+      for_each = try(each.value.ignore_differences, {})
+      content {
+        group         = try(ignore_difference.value.group, null)
+        kind          = try(ignore_difference.value.kind, null)
+        name          = try(ignore_difference.value.name, null)
+        namespace     = try(ignore_difference.value.namespace, null)
+        json_pointers = try(ignore_difference.value.json_pointers, null)
+      }
     }
   }
 

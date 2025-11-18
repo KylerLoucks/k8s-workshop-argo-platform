@@ -51,7 +51,7 @@ resource "kubernetes_service_account_v1" "argocd_cluster_prod" {
   provider = kubernetes.prod
 
   metadata {
-    name      = "argocd-cluster"
+    name      = "argocd-manager"
     namespace = kubernetes_namespace.argo_access_prod.metadata[0].name
   }
 
@@ -130,6 +130,10 @@ locals {
 # Argo CD module
 ########################################
 
+resource "bcrypt_hash" "argocd_admin" {
+  cleartext = var.argocd_admin_password
+}
+
 module "argocd" {
   source  = "../modules/argocd"
   install = true
@@ -145,52 +149,41 @@ module "argocd" {
     set_sensitive = [
       {
         name  = "configs.secret.argocdServerAdminPassword"
-        value = bcrypt(var.argocd_admin_password)
+        value = bcrypt_hash.argocd_admin.id
       }
     ]
-  }
-
-  # in-cluster / mgmt cluster registration
-  cluster = {
-    environment = "dev"
-    addons = {
-      argocd = true
-    }
-    metadata = {
-      aws_cluster_name = "dev"
-    }
   }
 
   # external k3d prod cluster registration
   external_clusters = {
     prod = {
-      server       = local.prod_cluster_server
-      bearer_token = local.prod_cluster_token
-      ca_data      = local.prod_cluster_ca
+      server       = local.prod_cluster_server # server url of the cluster
+      bearer_token = local.prod_cluster_token # token to authenticate to the cluster
+      ca_data      = local.prod_cluster_ca # CA data of the cluster
       insecure     = false
 
-      namespaces  = []                     # or ["apps", "default"] if you want to scope
-      labels      = { 
-        environment = "prod",
+      namespaces = [] # or ["apps", "default"] if you want to scope
+      labels = {
+        environment   = "prod",
         enable_argocd = true,
-        cluster_name = "prod"
+        cluster_name  = "prod"
       }
       annotations = {}
     }
   }
 
   apps = {
-    dev = {
-      name = "app-of-apps"
-      namespace = "argocd"
-      repo_url = "https://github.com/kylerloucks/k8s-workshop-argo-platform.git"
-      target_revision = "main"
-      path = "argocd/bootstrap/management"
+    management = {
+      name                  = "app-of-apps"
+      namespace             = "argocd"
+      repo_url              = "https://github.com/kylerloucks/k8s-workshop-argo-platform.git"
+      target_revision       = "main"
+      path                  = "argocd/bootstrap/management"
       destination_namespace = "argocd"
-      server = "https://kubernetes.default.svc"
-      prune = true
-      self_heal = true
-      sync_options = ["ServerSideApply=true"]
+      destination_server    = "https://kubernetes.default.svc"
+      prune                 = true
+      self_heal             = true
+      sync_options          = ["CreateNamespace=true", "ApplyOutOfSyncOnly=true", "PrunePropagationPolicy=foreground"]
     }
   }
 
