@@ -39,14 +39,15 @@ spec:
             releaseName: web-ui
             valueFiles:
               - values.yaml
-              - dev-us/values.yaml
-              - dev-us/version.yaml
+              - envs/dev-us/values.yaml
+              - envs/dev-us/version.yaml
       destination:
         namespace: '{{name}}'
         name: '{{name}}'
       syncPolicy:
         automated:
-          prune: false
+          prune: true
+          selfHeal: true
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true
