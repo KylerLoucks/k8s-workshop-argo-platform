@@ -38,9 +38,9 @@ spec:
           helm:
             releaseName: web-ui
             valueFiles:
-              - charts/web-ui/values.yaml
-              - charts/web-ui/envs/dev-us/values.yaml
-              - charts/web-ui/envs/dev-us/version.yaml
+              - values.yaml
+              - dev-us/values.yaml
+              - dev-us/version.yaml
       destination:
         namespace: '{{name}}'
         name: '{{name}}'
