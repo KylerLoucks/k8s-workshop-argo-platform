@@ -1,38 +1,181 @@
-resource "null_resource" "k3d_cluster" {
-  for_each = toset(var.cluster_names)
+########################################
+# k3d prod cluster CA + kubeconfig info
+########################################
 
-  triggers = {
-    cluster  = each.key
-    expose   = tostring(var.expose_lb)
-    lb_ports = join(",", var.lb_ports)
+locals {
+  kubeconfig_path = pathexpand("~/.kube/config")
+  dev_context     = "k3d-dev"
+  prod_context    = "k3d-prod"
+
+  kubeconfig_doc = yamldecode(file(local.kubeconfig_path))
+
+  prod_cluster_doc = try(
+    one([for c in local.kubeconfig_doc.clusters : c if c.name == local.prod_context]),
+    null
+  )
+
+  # from kubeconfig: clusters[].cluster.certificate-authority-data (base64)
+  prod_cluster_ca_data = try(local.prod_cluster_doc.cluster["certificate-authority-data"], null)
+
+  # PEM string (this is what argocd_cluster.config.tls_client_config.ca_data wants)
+  prod_cluster_ca = local.prod_cluster_ca_data != null ? base64decode(local.prod_cluster_ca_data) : null
+
+  # API server URL for k3d prod (you already have this as a var)
+  prod_cluster_server = var.prod_cluster_server
+
+  # example helm overrides for Argo CD itself
+  argocd_values = [
+    yamlencode({
+      server = {
+        service = {
+          type = "ClusterIP"
+        }
+      }
+    })
+  ]
+}
+
+########################################
+# SA + RBAC in k3d prod cluster
+########################################
+
+resource "kubernetes_namespace" "argo_access_prod" {
+  provider = kubernetes.prod
+
+  metadata {
+    name = "argo-access"
+  }
+}
+
+resource "kubernetes_service_account_v1" "argocd_cluster_prod" {
+  provider = kubernetes.prod
+
+  metadata {
+    name      = "argocd-cluster"
+    namespace = kubernetes_namespace.argo_access_prod.metadata[0].name
   }
 
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-lc"]
-    command     = <<EOT
-set -e
-NAME='${each.key}'
-K3D='${var.k3d_binary}'
-if ! $K3D kubeconfig get "$NAME" >/dev/null 2>&1; then
-  FLAGS=""
-  if [ "${var.expose_lb}" = "true" ]; then
-    for p in ${join(" ", var.lb_ports)}; do FLAGS="$FLAGS -p $p"; done
-  fi
-  echo "[create] k3d cluster $NAME $FLAGS"
-  $K3D cluster create "$NAME" $FLAGS --wait
-else
-  echo "[skip] cluster $NAME already exists"
-fi
-EOT
+  automount_service_account_token = true
+}
+
+resource "kubernetes_cluster_role_binding_v1" "argocd_cluster_prod" {
+  provider = kubernetes.prod
+
+  metadata {
+    name = "argocd-cluster-binding"
   }
 
-  provisioner "local-exec" {
-    when        = destroy
-    interpreter = ["/bin/bash", "-lc"]
-    command     = <<EOT
-set -e
-NAME='${each.key}'
-${var.k3d_binary} cluster delete "$NAME" || true
-EOT
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = "cluster-admin"
   }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account_v1.argocd_cluster_prod.metadata[0].name
+    namespace = kubernetes_service_account_v1.argocd_cluster_prod.metadata[0].namespace
+  }
+}
+
+########################################
+# ServiceAccount token secret (waits for token)
+########################################
+
+resource "kubernetes_secret_v1" "argocd_cluster_token_prod" {
+  provider = kubernetes.prod
+
+  metadata {
+    name      = "argocd-cluster-token"
+    namespace = kubernetes_service_account_v1.argocd_cluster_prod.metadata[0].namespace
+    annotations = {
+      "kubernetes.io/service-account.name" = kubernetes_service_account_v1.argocd_cluster_prod.metadata[0].name
+    }
+  }
+
+  type                           = "kubernetes.io/service-account-token"
+  wait_for_service_account_token = true
+
+  depends_on = [
+    kubernetes_service_account_v1.argocd_cluster_prod,
+    kubernetes_cluster_role_binding_v1.argocd_cluster_prod,
+  ]
+}
+
+########################################
+# Read the SA token via data source
+########################################
+
+data "kubernetes_secret_v1" "argocd_cluster_token_prod_read" {
+  provider = kubernetes.prod
+
+  metadata {
+    name      = kubernetes_secret_v1.argocd_cluster_token_prod.metadata[0].name
+    namespace = kubernetes_secret_v1.argocd_cluster_token_prod.metadata[0].namespace
+  }
+
+  depends_on = [
+    kubernetes_secret_v1.argocd_cluster_token_prod,
+  ]
+}
+
+locals {
+  # token is already a JWT string, just strip sensitivity wrapper
+  prod_cluster_token = nonsensitive(
+    data.kubernetes_secret_v1.argocd_cluster_token_prod_read.data["token"]
+  )
+}
+
+########################################
+# Argo CD module
+########################################
+
+module "argocd" {
+  source  = "../modules/argocd"
+  install = true
+
+  argocd = {
+    name             = "argo-cd"
+    namespace        = "argocd"
+    create_namespace = true
+    chart_version    = "9.1.1"
+    repository       = "https://argoproj.github.io/argo-helm"
+    values           = local.argocd_values
+
+    set_sensitive = [
+      {
+        name  = "configs.secret.argocdServerAdminPassword"
+        value = bcrypt(var.argocd_admin_password)
+      }
+    ]
+  }
+
+  # in-cluster / mgmt cluster registration
+  cluster = {
+    environment = "dev"
+    addons = {
+      argocd = true
+    }
+    metadata = {
+      aws_cluster_name = "dev"
+    }
+  }
+
+  # external k3d prod cluster registration
+  external_clusters = {
+    prod = {
+      server       = local.prod_cluster_server
+      bearer_token = local.prod_cluster_token
+      ca_data      = local.prod_cluster_ca
+      insecure     = false
+
+      namespaces  = []                     # or ["apps", "default"] if you want to scope
+      labels      = { environment = "prod" }
+      annotations = {}
+    }
+  }
+
+  depends_on = [
+    data.kubernetes_secret_v1.argocd_cluster_token_prod_read,
+  ]
 }
