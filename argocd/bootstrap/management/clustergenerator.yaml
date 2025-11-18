@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: addons-argocd
+spec:
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  generators:
+    - merge:
+        mergeKeys: [server]
+        generators:
+          - clusters:
+              selector:
+                matchExpressions:
+                  - key: cluster-name
+                    operator: NotIn
+                    values: [in-cluster]
+                  - key: enable_argocd
+                    operator: In
+                    values: ['true']
+          - clusters:
+              selector:
+                matchLabels:
+                  environment: dev
+          - clusters:
+              selector:
+                matchLabels:
+                  environment: prod
+  template:
+    metadata:
+      name: addon-{{name}}}
+    spec:
+      project: default
+      sources:
+        - repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
+          targetRevision: main
+          path: charts/web-ui
+          helm:
+            releaseName: web-ui
+            valueFiles:
+              - charts/web-ui/values.yaml
+              - charts/web-ui/envs/dev-us/values.yaml
+              - charts/web-ui/envs/dev-us/version.yaml
+      destination:
+        namespace: '{{name}}'
+        name: '{{name}}'
+      syncPolicy:
+        automated:
+          prune: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

@@ -114,3 +114,42 @@ resource "argocd_cluster" "external" {
 
   depends_on = [helm_release.argocd]
 }
+
+
+
+################################################################################
+# App of Apps
+################################################################################
+resource "argocd_application" "app_of_apps" {
+  for_each = var.create ? var.apps : {}
+
+  metadata {
+    name = try(each.value.name, each.key)
+    namespace = try(each.value.namespace, "argocd")
+    labels = try(each.value.labels, {})
+    annotations = try(each.value.annotations, {})
+  }
+
+  spec {
+    project = try(each.value.project, "default")
+    source {
+      repo_url = each.value.repo_url
+      target_revision = try(each.value.target_revision, "main")
+      path = each.value.path
+    }
+    destination {
+      server = try(each.value.server, null)
+      namespace = try(each.value.destination_namespace, "argocd")
+      name = try(each.value.destination_name, null)
+    }
+    sync_policy {
+      automated {
+        prune = try(each.value.prune, true)
+        self_heal = try(each.value.self_heal, true)
+      }
+      sync_options = try(each.value.sync_options, ["CreateNamespace=true", "ApplyOutOfSyncOnly=true", "PrunePropagationPolicy=foreground"])
+    }
+  }
+
+  depends_on = [helm_release.argocd]
+}

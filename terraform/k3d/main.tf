@@ -175,6 +175,21 @@ module "argocd" {
     }
   }
 
+  apps = {
+    dev = {
+      name = "app-of-apps"
+      namespace = "argocd"
+      repo_url = "https://github.com/kylerloucks/k8s-workshop-argo-platform.git"
+      target_revision = "main"
+      path = "argocd/bootstrap/management"
+      destination_namespace = "argocd"
+      server = "https://kubernetes.default.svc"
+      prune = true
+      self_heal = true
+      sync_options = ["ServerSideApply=true"]
+    }
+  }
+
   depends_on = [
     data.kubernetes_secret_v1.argocd_cluster_token_prod_read,
   ]
