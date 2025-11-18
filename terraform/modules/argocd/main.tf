@@ -52,9 +52,9 @@ resource "helm_release" "argocd" {
   replace                    = try(var.argocd.replace, null)
   lint                       = try(var.argocd.lint, null)
 
-  postrender                 = try(var.argocd.postrender, null)
-  set                        = try(var.argocd.set, [])
-  set_sensitive              = try(var.argocd.set_sensitive, [])
+  postrender    = try(var.argocd.postrender, null)
+  set           = try(var.argocd.set, [])
+  set_sensitive = try(var.argocd.set_sensitive, [])
 
 }
 
