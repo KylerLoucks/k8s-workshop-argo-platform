@@ -9,18 +9,6 @@ variable "argocd" {
   default     = {}
 }
 
-variable "install" {
-  description = "Deploy argocd helm"
-  type        = bool
-  default     = true
-}
-
-variable "cluster" {
-  description = "argocd cluster secret"
-  type        = any
-  default     = null
-}
-
 variable "apps" {
   description = "argocd app of apps to deploy"
   type        = any

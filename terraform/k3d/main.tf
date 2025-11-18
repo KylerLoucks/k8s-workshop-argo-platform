@@ -136,7 +136,6 @@ resource "bcrypt_hash" "argocd_admin" {
 
 module "argocd" {
   source  = "../modules/argocd"
-  install = true
 
   argocd = {
     name             = "argo-cd"
@@ -158,8 +157,8 @@ module "argocd" {
   external_clusters = {
     prod = {
       server       = local.prod_cluster_server # server url of the cluster
-      bearer_token = local.prod_cluster_token # token to authenticate to the cluster
-      ca_data      = local.prod_cluster_ca # CA data of the cluster
+      bearer_token = local.prod_cluster_token  # token to authenticate to the cluster
+      ca_data      = local.prod_cluster_ca     # CA data of the cluster
       insecure     = false
 
       namespaces = [] # or ["apps", "default"] if you want to scope
@@ -174,16 +173,26 @@ module "argocd" {
 
   apps = {
     management = {
-      name                  = "app-of-apps"
-      namespace             = "argocd"
-      repo_url              = "https://github.com/kylerloucks/k8s-workshop-argo-platform.git"
-      target_revision       = "main"
-      path                  = "argocd/bootstrap/management"
+      name      = "app-of-apps"
+      namespace = "argocd"
+      project   = "default"
+      sources = [
+        {
+          repo_url        = "https://github.com/kylerloucks/k8s-workshop-argo-platform.git"
+          target_revision = "main"
+          path            = "argocd/bootstrap/management"
+        }
+      ]
       destination_namespace = "argocd"
       destination_server    = "https://kubernetes.default.svc"
       prune                 = true
       self_heal             = true
-      sync_options          = ["CreateNamespace=true", "ApplyOutOfSyncOnly=true", "PrunePropagationPolicy=foreground"]
+      sync_options = [
+        "CreateNamespace=true",
+        "ApplyOutOfSyncOnly=true",
+        "PrunePropagationPolicy=foreground",
+        "ServerSideApply=true",
+      ]
     }
   }
 

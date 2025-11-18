@@ -1,10 +1,10 @@
 terraform {
-  required_version = ">= 1.2.0"
+  required_version = ">= 1.12.0"
 
   required_providers {
     helm = {
       source  = "hashicorp/helm"
-      version = ">= 2.12.1"
+      version = "~> 3.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
@@ -21,6 +21,10 @@ terraform {
     bcrypt = {
       source  = "viktorradnai/bcrypt"
       version = "~> 0.1"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
     }
     time = {
       source  = "hashicorp/time"

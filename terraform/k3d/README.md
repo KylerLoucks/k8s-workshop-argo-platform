@@ -60,14 +60,21 @@ terraform init
 terraform apply -auto-approve
 ```
 
-After apply, you can port-forward the UI the usual way:
+After apply, you will get an error saying you can't connect to ArgoCD.
+```bash
+│ Error: failed to create new session client
+│ 
+│   with module.argocd.argocd_application.app_of_apps["management"],
+│   on ../modules/argocd/main.tf line 97, in resource "argocd_application" "app_of_apps":
+│   97: resource "argocd_application" "app_of_apps" {
+│ 
+│ dial tcp [::1]:8080: connect: connection refused
+```
+
+You need to port forward the UI and run terraform apply again. You can port-forward the UI the usual way:
 ```bash
 kubectl --context k3d-dev -n argocd port-forward svc/argo-cd-argocd-server 8080:80
 ```
-
-## Customizing
-Need to change chart values, namespaces, or prod API host? Edit `main.tf` directly—the stack is
-intentionally small so it’s easy to tweak.
 
 ## Outputs
 - `k3d_kube_contexts`: the dev/prod contexts Terraform expects.
