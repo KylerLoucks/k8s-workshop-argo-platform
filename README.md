@@ -2,7 +2,7 @@
 
 ## Workflow setup
 
-For all tooling prerequisites, cluster creation, and Argo CD bootstrap instructions, follow the guide in [`k3d/README.md`](./terraform/k3d/README.md). That document walks through installing dependencies, creating the local dev/prod clusters, and running the full workflow end-to-end.
+For all tooling prerequisites, cluster creation, and Argo CD bootstrap instructions, follow the guide in [`terraform/k3d/README.md`](./terraform/k3d/README.md). That document walks through installing dependencies, creating the local dev/prod clusters, and running the full workflow end-to-end.
 
 ## How env overlays and the ApplicationSet work
 
