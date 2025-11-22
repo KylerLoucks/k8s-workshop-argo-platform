@@ -9,12 +9,15 @@ module "openvpn" {
   #   ebs_kms_key_id         = module.kms.ebs_key_arn
   key_name  = "ex-${basename(path.cwd)}"
   subnet_id = module.vpc.public_subnets[0]
-  vpc_cidr  = local.vpc_cidr
+  vpc_cidr  = module.vpc.vpc_cidr_block
   tags = {
     Environment = var.environment
     Owner       = var.environment
     ManagedBy   = "terraform"
   }
+
+  # Set API termination to false to allow tearing down the instance during Terraform destroy
+  disable_api_termination = false
 }
 
 ################################################################################
