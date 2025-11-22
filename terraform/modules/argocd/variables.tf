@@ -20,3 +20,9 @@ variable "external_clusters" {
   type        = map(any)
   default     = {}
 }
+
+variable "repositories" {
+  description = "Repositories to add to ArgoCD"
+  type        = map(any)
+  default     = {}
+}

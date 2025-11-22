@@ -4,7 +4,7 @@
 
 locals {
   kubeconfig_path = pathexpand("~/.kube/config")
-  dev_context     = "k3d-dev"
+  dev_context     = "k3d-management"
   prod_context    = "k3d-prod"
 
   kubeconfig_doc = yamldecode(file(local.kubeconfig_path))
@@ -168,7 +168,7 @@ module "argocd" {
   external_clusters = {
     prod = {
       server     = local.prod_cluster_server # server url of the cluster
-      namespaces = [] # or ["apps", "default"] if you want to scope
+      namespaces = []                        # or ["apps", "default"] if you want to scope
 
       config = {
         bearer_token = local.prod_cluster_token # token to authenticate to the cluster
@@ -211,6 +211,17 @@ module "argocd" {
         "PrunePropagationPolicy=foreground",
         "ServerSideApply=true",
       ]
+    }
+  }
+
+  repositories = {
+    kubernetes = {
+      repo            = "git@github.com:KylerLoucks/kubernetes.git"
+      project         = "default"
+      enable_lfs      = true
+      insecure        = false
+      enable_oci      = true
+      ssh_private_key = file("~/.ssh/argocd_ed25519")
     }
   }
 

@@ -14,6 +14,86 @@ This module installs Argo CD into a Kubernetes cluster via Helm, optionally regi
 
 Inputs are declared in `variables.tf`; see `terraform/k3d/main.tf` for an end-to-end usage example.
 
+## Configure GitHub Deploy Key
+
+Use an SSH deploy key when Argo CD needs to read private Git repositories. The steps below create a dedicated keypair and register it with GitHub:
+
+1. Generate the keypair (leave the passphrase empty; Argo CD cannot unlock keys that require one):
+   ```
+   ssh-keygen -t ed25519 -C "ArgoCD GitHub deploy key" -f ~/.ssh/argocd_ed25519
+   ```
+2. Grab the public key value you need to paste into GitHub:
+   ```
+   cat ~/.ssh/argocd_ed25519.pub
+   ```
+3. In GitHub, open the repository, go to **Settings → Deploy Keys**, click **Add deploy key**, set **Title** to `argocd`, and paste the public key into the **Key** textbox. Enable **Allow write access** only if Argo CD must push.
+4. The private key remains on disk for Terraform/Argo CD to use:
+   ```
+   cat ~/.ssh/argocd_ed25519
+   ```
+
+> Keep the private key file readable only by the user running Terraform (`chmod 600 ~/.ssh/argocd_ed25519`).
+
+## Passing Module Inputs (Argo CD + Repositories)
+
+```hcl
+module "argocd" {
+  source = "../modules/argocd"
+
+  argocd = {
+    name             = "argo-cd"
+    namespace        = "argocd"
+    create_namespace = true
+    chart_version    = "9.1.1"
+    repository       = "https://argoproj.github.io/argo-helm"
+    values = [
+      yamlencode({
+        server = {
+          service = {
+            type = "ClusterIP"
+          }
+        }
+      })
+    ]
+    set_sensitive = [
+      {
+        name  = "configs.secret.argocdServerAdminPassword"
+        value = bcrypt_hash.argocd_admin.id
+      }
+    ]
+  }
+
+  repositories = {
+    my-repo = {
+      repo            = "git@github.com:my-org/my-repo.git"
+      project         = "default"
+      enable_lfs      = true
+      insecure        = false
+      ssh_private_key = file("~/.ssh/argocd_ed25519")
+    }
+  }
+
+  apps = {
+    bootstrap = {
+      name                 = "app-of-apps"
+      namespace            = "argocd"
+      project              = "default"
+      target_revision      = "main"
+      destination_server   = "https://kubernetes.default.svc"
+      destination_namespace = "argocd"
+      sources = [
+        {
+          repo_url = "git@github.com:my-org/my-repo.git"
+          path     = "argocd/bootstrap"
+        }
+      ]
+    }
+  }
+}
+```
+
+The `repositories` map wires Argo CD to the SSH deploy key you created earlier, while the `argocd` block controls the Helm release and `apps` describes the desired `argocd_application` resources.
+
 ## Apps Examples
 
 ### Kustomize App-of-Apps
