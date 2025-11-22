@@ -80,7 +80,7 @@ module "eks" {
     coredns = {
       most_recent = true
       configuration_values = jsonencode({
-        computeType = "Fargate" # Tell CoreDNS to use Fargate for the pods
+        computeType = "Fargate" # Tell CoreDNS to use Fargate for the pods. Will fail if not set since there are no node groups.
       })
     }
     kube-proxy = {

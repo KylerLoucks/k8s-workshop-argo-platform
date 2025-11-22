@@ -88,7 +88,7 @@ module "argocd" {
         value = bcrypt_hash.argo.id
       },
 
-    
+
       # External Redis password from Secrets Manager. Must be plaintext since it's passed to the external Redis.
       {
         name  = "externalRedis.password"
