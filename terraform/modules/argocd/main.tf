@@ -219,6 +219,7 @@ resource "argocd_application" "app_of_apps" {
 
 ################################################################################
 # ArgoCD Repositories
+# Generates secret in ArgoCD namespace for access to private git repositories
 ################################################################################
 resource "argocd_repository" "repository" {
   for_each = var.create ? var.repositories : {}
