@@ -160,6 +160,12 @@ module "argocd" {
       {
         name  = "configs.secret.argocdServerAdminPassword"
         value = bcrypt_hash.argocd_admin.id
+      },
+      # GitHub webhook secret
+      {
+        # This produces configs.secret["webhook.github.secret"] in values
+        name  = "configs.secret.githubSecret"
+        value = var.github_webhook_secret
       }
     ]
   }
