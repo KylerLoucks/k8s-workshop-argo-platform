@@ -110,6 +110,9 @@ module "eks" {
         },
         {
           namespace = "argocd"
+        },
+        {
+          namespace = "external-dns"
         }
       ]
       tags = {
@@ -159,4 +162,29 @@ output "cluster_arn" {
 
 output "cluster_endpoint" {
   value = module.eks.cluster_endpoint
+}
+
+
+
+module "external-dns" {
+  source = "../modules/external-dns/"
+
+  cluster_name              = module.eks.cluster_name
+  cluster_oidc_provider_arn = module.eks.oidc_provider_arn
+
+  # Pass the ARN of the hosted zone created by the Route53 zone module.
+  external_dns_hosted_zone_arns = [
+    data.aws_route53_zone.domain.arn
+  ]
+
+  external_dns_domain_filters = [local.domain_name]
+
+  tags = {
+    Environment = var.environment
+    Owner       = var.environment
+  }
+  # Wait for the Route53 zone to be created before creating the external-dns resources.
+  depends_on = [
+    module.eks
+  ]
 }

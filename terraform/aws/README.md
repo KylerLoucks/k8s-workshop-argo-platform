@@ -2,6 +2,13 @@
 
 This stack demonstrates how to provision an EKS cluster, deploy Argo CD via Terraform/Helm, and wire it up to external services such as AWS Secrets Manager and ElastiCache Redis. The goal is to showcase a production-friendly setup where Argo CD runs behind the AWS Load Balancer Controller with an external Redis backend and all sensitive values managed outside the cluster.
 
+## Prereqs
+- **Route53 domain**:
+  - Either **register a new domain in Route53** (`Route 53 → Registered domains → Register domain`).
+  - Or use an **existing domain** and create / verify a **public hosted zone** in Route53 for it (`Route 53 → Hosted zones → Create hosted zone`).
+  - Make sure the **hosted zone and this Terraform stack are in the same AWS account** so Terraform can manage Route53 records.
+  - If the domain is registered elsewhere (GoDaddy, Namecheap, etc.), update the **NS records at your registrar** to point at the Route53 hosted zone’s name servers.
+
 Create kubeconfig so we can connect to EKS with kubectl
 ```bash
 aws eks update-kubeconfig --region <region> --name <cluster-name>

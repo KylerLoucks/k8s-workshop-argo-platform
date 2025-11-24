@@ -58,12 +58,12 @@ resource "aws_instance" "openvpn" {
     kms_key_id            = var.ebs_kms_key_id
   }
 
-  user_data = templatefile("${path.module}/user_data.sh", {
+  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
     vpc_cidr                 = var.vpc_cidr
     openvpn_admin_password   = var.openvpn_admin_password
     elastic_ip               = aws_eip.eip.public_ip
     private_network_lines    = local.private_network_lines
-  })
+  }))
 
   volume_tags = merge(var.tags, { "Name" = "${var.name} root volume" })
   tags        = merge(var.tags, { "Name" = var.name, "ssm" = var.enable_ssm })

@@ -3,7 +3,6 @@ module "argocd" {
 
   argocd = {
     chart_version = "9.1.1"
-
     values = [
       yamlencode({
 
@@ -49,35 +48,29 @@ module "argocd" {
           ]
           service = { type = "ClusterIP" }
 
-          # Public ALB for webhook only
+          # Public ALB
           ingress = {
             enabled          = true
             ingressClassName = "alb"
             pathType         = "Prefix"
-            hosts            = ["*"] # use default hostname for alb
-            # hosts            = [for domain in var.delegated_domains : "argocd.${domain}"]
-            paths = ["/"]
+            hosts            = ["argocd.${local.domain_name}"]
+            paths            = ["/"]
             annotations = {
-              "alb.ingress.kubernetes.io/scheme"       = "internet-facing"
-              "alb.ingress.kubernetes.io/target-type"  = "ip"
-              "alb.ingress.kubernetes.io/listen-ports" = "[{\"HTTP\":80}]"
-              #   "alb.ingress.kubernetes.io/certificate-arn" = [for domain in var.delegated_domains : aws_acm_certificate.argocd[domain].arn]
+              "alb.ingress.kubernetes.io/scheme"          = "internet-facing"
+              "alb.ingress.kubernetes.io/target-type"     = "ip"
+              "alb.ingress.kubernetes.io/listen-ports"    = "[{\"HTTPS\":443}]"
+              "alb.ingress.kubernetes.io/certificate-arn" = aws_acm_certificate.argocd.arn
+							"alb.ingress.kubernetes.io/ssl-redirect" 		= "true"
+							# External DNS annotation to allow external-dns to manage the DNS record
+							"external-dns.alpha.kubernetes.io/hostname" = "argocd.${local.domain_name}"
             }
           }
-
-          # Internal ALB for UI
-          #   additionalIngress = [{
-          #     name             = "ui-internal"
-          #     ingressClassName = "alb"
-          #     # hosts            = ["argocd.${local.private_domain}"]
-          #     paths            = ["/"]
-          #     annotations = {
-          #       "alb.ingress.kubernetes.io/scheme"       = "internal"
-          #       "alb.ingress.kubernetes.io/target-type"  = "ip"
-          #       "alb.ingress.kubernetes.io/listen-ports" = "[{\"HTTP\":80}]"
-          #     }
-          #   }]
         }
+
+				global = {
+          domain = "argocd.${local.domain_name}"
+        }
+
       })
     ]
 
@@ -92,9 +85,19 @@ module "argocd" {
       # External Redis password from Secrets Manager. Must be plaintext since it's passed to the external Redis.
       {
         name  = "externalRedis.password"
-        value = jsondecode(aws_secretsmanager_secret_version.argocd_redis_auth.secret_string)["redis-password"]
+        value = random_password.argocd_redis_auth_password.result
       }
     ]
+  }
+
+  repositories = {
+  	kubernetes = {
+  		repo            = "git@github.com:KylerLoucks/kubernetes.git"
+  		project         = "default"
+  		enable_lfs      = false
+  		insecure        = false
+  		ssh_private_key = file("~/.ssh/argocd_ed25519")
+  	}
   }
 
   depends_on = [
@@ -109,10 +112,6 @@ module "argocd" {
 ################################################################################
 # ArgoCD External Redis
 ################################################################################
-locals {
-  argocd_redis_auth_token = jsondecode(aws_secretsmanager_secret_version.argocd_redis_auth.secret_string)["redis-password"]
-}
-
 module "argocd_external_redis" {
   source  = "terraform-aws-modules/elasticache/aws"
   version = "1.10.3"
@@ -124,7 +123,7 @@ module "argocd_external_redis" {
 
   # Auth token (requires transit encryption to be enabled)
   transit_encryption_enabled = true
-  auth_token                 = local.argocd_redis_auth_token
+  auth_token                 = random_password.argocd_redis_auth_password.result
   # Don't destroy the Redis cluster when the auth token is updated
   auth_token_update_strategy = var.external_redis_auth_token_update_strategy
 
