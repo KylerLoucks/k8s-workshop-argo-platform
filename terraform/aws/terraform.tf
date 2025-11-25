@@ -100,7 +100,7 @@ provider "argocd" {
   # Argo CD is exposed via an internet-facing ALB listening on HTTP :80.
   # The provider defaults to HTTPS on :443, which causes timeouts against this ALB.
   # Use plain HTTP on port 80 instead.
-  server_addr = "argocd.${local.domain_name}:443"
+  server_addr = "argocd.${var.domain_name}:443"
   username    = "admin"
   password    = random_password.argocd.result
 }

@@ -53,7 +53,7 @@ module "argocd" {
             enabled          = true
             ingressClassName = "alb"
             pathType         = "Prefix"
-            hosts            = ["argocd.${local.domain_name}"]
+            hosts            = ["argocd.${var.domain_name}"]
             paths            = ["/"]
             annotations = {
               "alb.ingress.kubernetes.io/scheme"          = "internet-facing"
@@ -62,13 +62,13 @@ module "argocd" {
               "alb.ingress.kubernetes.io/certificate-arn" = aws_acm_certificate.argocd.arn
 							"alb.ingress.kubernetes.io/ssl-redirect" 		= "true"
 							# External DNS annotation to allow external-dns to manage the DNS record
-							"external-dns.alpha.kubernetes.io/hostname" = "argocd.${local.domain_name}"
+							"external-dns.alpha.kubernetes.io/hostname" = "argocd.${var.domain_name}"
             }
           }
         }
 
 				global = {
-          domain = "argocd.${local.domain_name}"
+          domain = "argocd.${var.domain_name}"
         }
 
       })

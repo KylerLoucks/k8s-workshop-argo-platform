@@ -1,3 +1,6 @@
+# This file is used to generate the ApplicationSet for the management cluster.
+# The purpose is to generate an Application for each cluster that is enabled for Argo CD.
+# Or to clusters that are labeled with the matching environment label.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:

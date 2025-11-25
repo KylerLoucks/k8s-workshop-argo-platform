@@ -1,11 +1,7 @@
-locals {
-  domain_name = "devawskloucks.click"
-}
-
 # Public Route53 zone for the domain.
 # This was created automatically when the domain was registered.
 data "aws_route53_zone" "domain" {
-  name         = local.domain_name
+  name         = var.domain_name
   private_zone = false
 }
 
@@ -13,7 +9,7 @@ data "aws_route53_zone" "domain" {
 # ACM Certificate for the domain
 ################################################################################
 resource "aws_acm_certificate" "argocd" {
-  domain_name       = "argocd.${local.domain_name}" # e.g. argocd.devawskloucks.click
+  domain_name       = "argocd.${var.domain_name}" # e.g. argocd.devawskloucks.click
   validation_method = "DNS"
 
   lifecycle {

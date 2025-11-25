@@ -177,7 +177,7 @@ module "external-dns" {
     data.aws_route53_zone.domain.arn
   ]
 
-  external_dns_domain_filters = [local.domain_name]
+  external_dns_domain_filters = [var.domain_name]
 
   tags = {
     Environment = var.environment

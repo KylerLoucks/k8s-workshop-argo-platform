@@ -11,6 +11,12 @@ variable "eks_cluster_name" {
   default     = "test-eks-cluster"
 }
 
+variable "domain_name" {
+  description = "Public Domain name registered in Route53"
+  type        = string
+  default     = "devawskloucks.click"
+}
+
 
 ################################################################################
 # ArgoCD External Redis

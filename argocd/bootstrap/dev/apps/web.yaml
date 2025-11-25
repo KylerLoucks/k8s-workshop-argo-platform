@@ -1,4 +1,6 @@
-
+# Application used to deploy a single chart to a single namespace.
+# It's typical to use a higher level Application manifest
+# to deploy everything in this folder. (e.g. path: argocd/bootstrap/dev/apps)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
