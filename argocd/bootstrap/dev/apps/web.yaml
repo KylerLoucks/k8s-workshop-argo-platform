@@ -4,6 +4,7 @@ kind: Application
 metadata:
   name: dev-web-ui
   namespace: argocd
+  # Keep this finalizer ONLY if when deleting this Application from Argo CD, you want to cascade delete all k8s resources such as deployments, services, etc.
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
