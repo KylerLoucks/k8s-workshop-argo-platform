@@ -204,7 +204,7 @@ module "argocd" {
         {
           repo_url        = "https://github.com/kylerloucks/k8s-workshop-argo-platform.git"
           target_revision = "main"
-          path            = "argocd/bootstrap/management"
+          path            = "argocd/bootstrap/dev/apps"
         }
       ]
       destination_namespace = "argocd"

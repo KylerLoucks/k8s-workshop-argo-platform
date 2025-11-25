@@ -1,0 +1,30 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-web-ui
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
+    targetRevision: main
+    path: charts/web-ui     # <-- Path to the chart directory
+    helm:
+      valueFiles:
+        - envs/dev-us/values.yaml
+        - envs/dev-us/version.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev-web-ui
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
