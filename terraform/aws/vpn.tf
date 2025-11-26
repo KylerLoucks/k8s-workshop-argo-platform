@@ -3,11 +3,11 @@
 ################################################################################
 module "openvpn" {
   source                 = "../modules/openvpn"
-  name                   = "ex-${basename(path.cwd)}"
+  name                   = "ex-${basename(path.cwd)}-openvpn"
   openvpn_admin_password = random_password.openvpn_admin_password.result
   ebs_encryption         = true
   #   ebs_kms_key_id         = module.kms.ebs_key_arn
-  key_name  = "ex-${basename(path.cwd)}"
+  key_name  = module.keypair01.ec2_keypair_name
   subnet_id = module.vpc.public_subnets[0]
   vpc_cidr  = module.vpc.vpc_cidr_block
   tags = {
