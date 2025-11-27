@@ -96,9 +96,36 @@ provider "helm" {
   }
 }
 
+# Using this method will cause a race condition if argocd resources are applied at the same time argocd is installed. 
+# This is because:
+# - external-dns likely won't have the DNS record ready in time.
+# - This provider will be unable to find that endpoint and will give a connection error.
+# provider "argocd" {
+#   # Argo CD is exposed via an internet-facing ALB listening on HTTPS 443.
+#   server_addr = "argocd.${var.domain_name}:443"
+#   username    = "admin"
+#   password    = random_password.argocd.result
+# }
+
+
+# This method uses port-forwarding to the Argo CD server.
+# This method is more reliable than the first method because:
+# - It doesn't rely on external-dns to have the DNS record ready.
+# - It will use the Kubernetes API to talk to the ArgoCD API server instead of the internet-facing ALB.
 provider "argocd" {
-  # Argo CD is exposed via an internet-facing ALB listening on HTTPS 443.
-  server_addr = "argocd.${var.domain_name}:443"
-  username    = "admin"
-  password    = random_password.argocd.result
+  # Port-forward to the ArgoCD API server
+  port_forward_with_namespace = "argocd"
+
+	# ArgoCD login
+  username = "admin"
+  password = random_password.argocd.result
+
+	# Insecure is fine because we'll be talking to ArgoCD API server via kubernetes API.
+  plain_text = true
+  insecure   = true
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    token                  = data.aws_eks_cluster_auth.cluster.token
+  }
 }

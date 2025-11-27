@@ -22,7 +22,7 @@ module "argocd" {
           # externalRedis.password
         }
 
-
+				# ALB handles TLS termination with ACM certificate. ALB (HTTPS) --> ArgoCD (HTTP)
         configs = {
           params = {
             "server.insecure" = true
@@ -60,14 +60,14 @@ module "argocd" {
               "alb.ingress.kubernetes.io/target-type"     = "ip"
               "alb.ingress.kubernetes.io/listen-ports"    = "[{\"HTTPS\":443}]"
               "alb.ingress.kubernetes.io/certificate-arn" = aws_acm_certificate.argocd.arn
-							"alb.ingress.kubernetes.io/ssl-redirect" 		= "true"
-							# External DNS annotation to allow external-dns to manage the DNS record
-							"external-dns.alpha.kubernetes.io/hostname" = "argocd.${var.domain_name}"
+              # "alb.ingress.kubernetes.io/ssl-redirect" 		= "true"
+              # External DNS annotation to allow external-dns to manage the DNS record
+              "external-dns.alpha.kubernetes.io/hostname" = "argocd.${var.domain_name}"
             }
           }
         }
 
-				global = {
+        global = {
           domain = "argocd.${var.domain_name}"
         }
 
@@ -91,18 +91,19 @@ module "argocd" {
   }
 
   repositories = {
-  	kubernetes = {
-  		repo            = "git@github.com:KylerLoucks/kubernetes.git"
-  		project         = "default"
-  		enable_lfs      = false
-  		insecure        = false
-  		ssh_private_key = file("~/.ssh/argocd_ed25519")
-  	}
+    kubernetes = {
+      repo            = "git@github.com:KylerLoucks/kubernetes.git"
+      project         = "default"
+      enable_lfs      = false
+      insecure        = false
+      ssh_private_key = file("~/.ssh/argocd_ed25519")
+    }
   }
 
   depends_on = [
     module.eks,
     helm_release.alb_controller,
+		module.external-dns,
   ]
 }
 

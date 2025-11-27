@@ -7,8 +7,10 @@ resource "random_password" "argocd_redis_auth_password" {
 }
 
 resource "aws_secretsmanager_secret" "argocd_redis_auth" {
-  name        = "argocd-redis-auth"
-  description = "Auth token for ArgoCD Redis"
+  name                    = "argocd-redis-auth"
+	recovery_window_in_days = 0 # Set to zero to force delete during Terraform destroy
+  description             = "Auth token for ArgoCD Redis"
+
 
   #   kms_key_id = module.kms.ssm_key_id
 

@@ -188,3 +188,27 @@ module "external-dns" {
     module.eks
   ]
 }
+
+# module "external-secrets" {
+#   source = "./modules/external-secrets/"
+
+#   cluster_name              = module.eks.cluster_name
+#   cluster_oidc_provider_arn = module.eks.oidc_provider_arn
+#   environment               = var.environment
+#   region                    = data.aws_region.current.name
+
+#   # AWS Secrets Manager configuration
+#   external_secrets_secrets_manager_arns = [
+#     "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:<org-name>/${var.environment}/*",
+#     "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:shared/*",
+#     "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:datadog/*"
+#   ]
+
+
+#   tags = {
+#     Environment = var.environment
+#     Owner       = var.environment
+#   }
+
+#   depends_on = [module.eks]
+# }
