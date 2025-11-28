@@ -3,12 +3,13 @@
 ########################################
 
 locals {
-  kubeconfig_path = pathexpand("~/.kube/config")
-  dev_context     = "k3d-management"
-  prod_context    = "k3d-prod"
+  kubeconfig_path    = pathexpand("~/.kube/config")
+  management_context = "k3d-management"
+  prod_context       = "k3d-prod"
 
   kubeconfig_doc = yamldecode(file(local.kubeconfig_path))
 
+  # prod cluster info from kubeconfig: clusters[].cluster
   prod_cluster_doc = try(
     one([for c in local.kubeconfig_doc.clusters : c if c.name == local.prod_context]),
     null
@@ -149,7 +150,6 @@ module "argocd" {
   source = "../modules/argocd"
 
   argocd = {
-    name             = "argo-cd"
     namespace        = "argocd"
     create_namespace = true
     chart_version    = "9.1.1"

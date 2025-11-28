@@ -1,8 +1,8 @@
 output "k3d_kube_contexts" {
   description = "Expected kubeconfig contexts"
   value = {
-    management  = "k3d-management"
-    prod = "k3d-prod"
+    management = "k3d-management"
+    prod       = "k3d-prod"
   }
 }
 

@@ -4,7 +4,7 @@
 resource "helm_release" "argocd" {
   count = var.create ? 1 : 0
 
-  name             = try(var.argocd.name, "argo-cd")
+  name             = try(var.argocd.name, "argocd")
   description      = try(var.argocd.description, "A Helm chart to install ArgoCD")
   namespace        = try(var.argocd.namespace, "argocd")
   create_namespace = try(var.argocd.create_namespace, true)

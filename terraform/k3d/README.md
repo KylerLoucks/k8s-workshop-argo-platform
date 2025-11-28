@@ -21,14 +21,17 @@ service-account token in prod, and registers prod with Argo CD.
 ## Usage
 1. **Create / refresh the clusters manually**
    ```bash
-   # management (argocd) cluster (no special flags needed)
-   k3d cluster create management --wait
+    # management (argocd) cluster (no special flags needed)
+    k3d cluster create management \
+      --api-port 127.0.0.1:51980 \
+      --k3s-arg "--tls-san=host.k3d.internal@server:0" \
+      --wait
 
-   # prod cluster with API exposed on host + SAN for host.k3d.internal
-   k3d cluster create prod \
-     --api-port 127.0.0.1:6551 \
-     --k3s-arg "--tls-san=host.k3d.internal@server:0" \
-     --wait
+    # prod cluster with API exposed on host + SAN for host.k3d.internal
+    k3d cluster create prod \
+      --api-port 127.0.0.1:6551 \
+      --k3s-arg "--tls-san=host.k3d.internal@server:0" \
+      --wait
    ```
    Verify contexts:
    ```bash
@@ -73,7 +76,7 @@ After apply, you will get an error saying you can't connect to ArgoCD.
 
 You need to port forward the UI and run terraform apply again. You can port-forward the UI the usual way:
 ```bash
-kubectl --context k3d-management -n argocd port-forward svc/argo-cd-argocd-server 8080:80
+kubectl --context k3d-management -n argocd port-forward svc/argocd-server 8080:80
 ```
 
 ## Outputs
