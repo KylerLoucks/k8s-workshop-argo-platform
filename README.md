@@ -2,9 +2,15 @@
 
 ## Workflow setup
 
-For all tooling prerequisites, cluster creation, and Argo CD bootstrap instructions, follow the guide in [`terraform/k3d/README.md`](./terraform/k3d/README.md). That document walks through installing dependencies, creating the local dev/prod clusters, and running the full workflow end-to-end.
+This repo ships with **two Terraform stacks** for running ArgoCD platforms:
 
-## How env overlays and the ApplicationSet work
+- `terraform/k3d`: **local, free k3d-based Kubernetes** for easy Argo CD testing with no cloud bill. See [`terraform/k3d/README.md`](./terraform/k3d/README.md) for tooling prerequisites, local cluster creation, and ArgoCD bootstrap.
+- `terraform/aws`: **full AWS EKS platform** to run the same ArgoCD setup "for real" with controllers and DNS, including **external-dns** and the **AWS Load Balancer Controller**. See [`terraform/aws/README.md`](./terraform/aws/README.md) for AWS prerequisites, controllers, and DNS wiring.
+- `argocd/`: ArgoCD **CRDs and GitOps patterns** (e.g., `ApplicationSet`, `Application`, cluster generators, app-of-apps).
+- `charts/`: Helm charts for each app plus **env-specific values and overlays** (`values.yaml`, `envs/<env>/values.yaml`, `envs/<env>/version.yaml`).
+
+
+## ArgoCD - how env overlays and the ApplicationSets work
 
 ### Chart layout and overlays
 - Base chart per app lives under `charts/<app>` (e.g., `charts/web-ui`).
