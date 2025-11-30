@@ -116,11 +116,11 @@ provider "argocd" {
   # Port-forward to the ArgoCD API server
   port_forward_with_namespace = "argocd"
 
-	# ArgoCD login
+  # ArgoCD login
   username = "admin"
   password = random_password.argocd.result
 
-	# Insecure is fine because we'll be talking to ArgoCD API server via kubernetes API.
+  # Insecure is fine because we'll be talking to ArgoCD API server via kubernetes API.
   plain_text = true
   insecure   = true
   kubernetes {

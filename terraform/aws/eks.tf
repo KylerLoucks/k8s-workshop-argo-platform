@@ -112,8 +112,11 @@ module "eks" {
           namespace = "argocd"
         },
         {
-          namespace = "external-dns"
-        }
+          namespace = "external-*"
+        },
+        {
+          namespace = "monitoring"
+        },
       ]
       tags = {
         Owner = var.environment
@@ -190,7 +193,7 @@ module "external-dns" {
 }
 
 # module "external-secrets" {
-#   source = "./modules/external-secrets/"
+#   source = "../modules/external-secrets/"
 
 #   cluster_name              = module.eks.cluster_name
 #   cluster_oidc_provider_arn = module.eks.oidc_provider_arn
@@ -199,9 +202,10 @@ module "external-dns" {
 
 #   # AWS Secrets Manager configuration
 #   external_secrets_secrets_manager_arns = [
-#     "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:<org-name>/${var.environment}/*",
-#     "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:shared/*",
-#     "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:datadog/*"
+#     "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:grafana/*"
+#     # "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:<org-name>/${var.environment}/*",
+#     # "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:shared/*",
+#     # "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:datadog/*",
 #   ]
 
 
