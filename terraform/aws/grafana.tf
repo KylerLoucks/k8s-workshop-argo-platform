@@ -69,7 +69,7 @@ resource "helm_release" "kube-prometheus-stack" {
       grafana = {
         enabled = true
         service = {
-          type       = "ClusterIP"
+          type = "ClusterIP"
         }
         ingress = {
           enabled          = true
@@ -94,7 +94,7 @@ resource "helm_release" "kube-prometheus-stack" {
           scrapeInterval                          = "30s"
           serviceMonitorSelectorNilUsesHelmValues = false
           podMonitorSelectorNilUsesHelmValues     = false
-          
+
           # EXPLICITLY no storage PVC (use emptyDir) because we are on fargate and we don't want to pay for storage.
           storageSpec = {}
 
