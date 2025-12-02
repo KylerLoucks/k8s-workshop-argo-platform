@@ -161,6 +161,31 @@ module "argocd" {
     ]
   }
 
+  apps = {
+    bootstrap = {
+      name      = "app-of-apps"
+      namespace = "argocd"
+      project   = "default"
+      sources = [
+        {
+          repo_url        = "git@github.com:KylerLoucks/kubernetes.git"
+          target_revision = "master"
+          path            = "argocd/envs/${var.environment}/apps"
+        }
+      ]
+      destination_namespace = "argocd"
+      destination_server    = "https://kubernetes.default.svc"
+      prune                 = true
+      self_heal             = true
+      sync_options = [
+        "CreateNamespace=true",
+        "ApplyOutOfSyncOnly=true",
+        "PrunePropagationPolicy=foreground",
+        "ServerSideApply=true",
+      ]
+    }
+  }
+
   repositories = {
     kubernetes = {
       repo            = "git@github.com:KylerLoucks/kubernetes.git"

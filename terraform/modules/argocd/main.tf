@@ -212,7 +212,8 @@ resource "argocd_application" "app_of_apps" {
 
   depends_on = [
     helm_release.argocd,
-    argocd_cluster.external
+    argocd_cluster.external,
+    argocd_repository.repository
   ]
 }
 
