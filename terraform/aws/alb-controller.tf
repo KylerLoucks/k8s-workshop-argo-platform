@@ -57,7 +57,7 @@ resource "aws_iam_role_policy_attachment" "alb_controller_ec2" {
 # Custom policy for ALB controller to access EC2 resources
 resource "aws_iam_policy" "alb_controller_ec2" {
   name        = "alb-controller-ec2-policy"
-  description = "Policy for ALB controller to access EC2 resources"
+  description = "Policy for ALB controller to access EC2 & Shield resources"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -68,7 +68,9 @@ resource "aws_iam_policy" "alb_controller_ec2" {
           "ec2:DescribeRouteTables",
           "ec2:DescribeSubnets",
           "ec2:DescribeSecurityGroups",
-          "ec2:DescribeVpcs"
+          "ec2:DescribeVpcs",
+          "shield:GetSubscriptionState",
+          "shield:DescribeProtection"
         ]
         Resource = "*"
       }

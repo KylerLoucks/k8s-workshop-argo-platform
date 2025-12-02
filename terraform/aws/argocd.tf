@@ -74,6 +74,7 @@ module "argocd" {
 
   argocd = {
     chart_version = "9.1.1"
+    timeout       = 900
     values = [
       yamlencode({
 
@@ -161,30 +162,30 @@ module "argocd" {
     ]
   }
 
-  apps = {
-    bootstrap = {
-      name      = "app-of-apps"
-      namespace = "argocd"
-      project   = "default"
-      sources = [
-        {
-          repo_url        = "git@github.com:KylerLoucks/kubernetes.git"
-          target_revision = "master"
-          path            = "argocd/envs/${var.environment}/apps"
-        }
-      ]
-      destination_namespace = "argocd"
-      destination_server    = "https://kubernetes.default.svc"
-      prune                 = true
-      self_heal             = true
-      sync_options = [
-        "CreateNamespace=true",
-        "ApplyOutOfSyncOnly=true",
-        "PrunePropagationPolicy=foreground",
-        "ServerSideApply=true",
-      ]
-    }
-  }
+  # apps = {
+  #   bootstrap = {
+  #     name      = "app-of-apps"
+  #     namespace = "argocd"
+  #     project   = "default"
+  #     sources = [
+  #       {
+  #         repo_url        = "git@github.com:KylerLoucks/kubernetes.git"
+  #         target_revision = "master"
+  #         path            = "argocd/envs/${var.environment}/apps"
+  #       }
+  #     ]
+  #     destination_namespace = "argocd"
+  #     destination_server    = "https://kubernetes.default.svc"
+  #     prune                 = true
+  #     self_heal             = true
+  #     sync_options = [
+  #       "CreateNamespace=true",
+  #       "ApplyOutOfSyncOnly=true",
+  #       "PrunePropagationPolicy=foreground",
+  #       "ServerSideApply=true",
+  #     ]
+  #   }
+  # }
 
   repositories = {
     kubernetes = {
@@ -193,6 +194,11 @@ module "argocd" {
       enable_lfs      = false
       insecure        = false
       ssh_private_key = file("~/.ssh/argocd_ed25519")
+
+
+      # github_app_id              = "2393963"
+      # github_app_installation_id = "97553573"
+      # github_app_private_key     = file("~/.ssh/argoapp-private-key.pem")
     }
   }
 
