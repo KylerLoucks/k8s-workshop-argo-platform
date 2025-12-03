@@ -73,8 +73,11 @@ module "eks" {
   }
 
 
-
+  # Enable control plane logging including audit logs
   create_cloudwatch_log_group = false
+  enabled_log_types                      = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+  cloudwatch_log_group_retention_in_days = 90
+  # cloudwatch_log_group_kms_key_id        = module.kms.cloudwatch_key_arn
 
   addons = {
     coredns = {
@@ -88,6 +91,11 @@ module "eks" {
     }
 
     vpc-cni = {
+      most_recent = true
+    }
+    # Metrics Server for HPA (resource-based autoscaling) and kubectl top
+    # Note: Configured to use port 10251 for Fargate compatibility (10250 is reserved)
+    metrics-server = {
       most_recent = true
     }
   }
@@ -117,6 +125,18 @@ module "eks" {
         {
           namespace = "monitoring"
         },
+      ]
+      tags = {
+        Owner = var.environment
+      }
+    }
+
+    metrics = {
+      name = "metrics"
+      selectors = [
+        {
+          namespace = "amazon-cloudwatch"
+        }
       ]
       tags = {
         Owner = var.environment

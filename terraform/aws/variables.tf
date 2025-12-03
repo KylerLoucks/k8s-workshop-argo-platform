@@ -17,6 +17,122 @@ variable "domain_name" {
   default     = "devawskloucks.click"
 }
 
+################################################################################
+# ArgoCD Resources
+################################################################################
+variable "argocd_server_resources" {
+  description = "Kubernetes resources for the ArgoCD server. Requests and limits for CPU and memory."
+  type = object({
+    requests = map(string)
+    limits   = map(string)
+  })
+
+  default = {
+    requests = {
+      cpu    = "250m"
+      memory = "256Mi"
+    }
+    limits = {
+      cpu    = "500m"
+      memory = "1Gi"
+    }
+  }
+}
+
+variable "argocd_controller_resources" {
+  description = "Kubernetes resources for the ArgoCD controller."
+  type = object({
+    requests = map(string)
+    limits   = map(string)
+  })
+
+  default = {
+    requests = {
+      cpu    = "500m"
+      memory = "512Mi"
+    }
+    limits = {
+      cpu    = "1"
+      memory = "2Gi"
+    }
+  }
+}
+
+variable "argocd_repo_resources" {
+  description = "Kubernetes resources for the ArgoCD repo server."
+  type = object({
+    requests = map(string)
+    limits   = map(string)
+  })
+
+  default = {
+    requests = {
+      cpu    = "500m"
+      memory = "512Mi"
+    }
+    limits = {
+      cpu    = "1"
+      memory = "2Gi"
+    }
+  }
+}
+
+variable "argocd_applicationset_resources" {
+  description = "Kubernetes resources for the ArgoCD ApplicationSet controller."
+  type = object({
+    requests = map(string)
+    limits   = map(string)
+  })
+
+  default = {
+    requests = {
+      cpu    = "200m"
+      memory = "256Mi"
+    }
+    limits = {
+      cpu    = "500m"
+      memory = "512Mi"
+    }
+  }
+}
+
+variable "argocd_dex_resources" {
+  description = "Kubernetes resources for the ArgoCD Dex server."
+  type = object({
+    requests = map(string)
+    limits   = map(string)
+  })
+
+  default = {
+    requests = {
+      cpu    = "50m"
+      memory = "128Mi"
+    }
+    limits = {
+      cpu    = "100m"
+      memory = "256Mi"
+    }
+  }
+}
+
+variable "argocd_notifications_resources" {
+  description = "Kubernetes resources for the ArgoCD notifications controller."
+  type = object({
+    requests = map(string)
+    limits   = map(string)
+  })
+
+  default = {
+    requests = {
+      cpu    = "50m"
+      memory = "128Mi"
+    }
+    limits = {
+      cpu    = "100m"
+      memory = "256Mi"
+    }
+  }
+}
 
 ################################################################################
 # ArgoCD External Redis

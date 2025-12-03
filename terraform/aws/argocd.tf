@@ -106,12 +106,14 @@ module "argocd" {
           extraArgs = [
             "--redis-use-tls",
           ]
+          resources = var.argocd_controller_resources
         }
 
         repoServer = {
           extraArgs = [
             "--redis-use-tls",
           ]
+          resources = var.argocd_repo_resources
         }
 
         server = {
@@ -119,6 +121,7 @@ module "argocd" {
             "--redis-use-tls",
           ]
           service = { type = "ClusterIP" }
+          resources = var.argocd_server_resources
 
           # Public ALB
           ingress = {
@@ -137,6 +140,18 @@ module "argocd" {
               "external-dns.alpha.kubernetes.io/hostname" = "argocd.${var.domain_name}"
             }
           }
+        }
+
+        applicationSet = {
+          resources = var.argocd_applicationset_resources
+        }
+
+        dex = {
+          resources = var.argocd_dex_resources
+        }
+
+        notifications = {
+          resources = var.argocd_notifications_resources
         }
 
         global = {
