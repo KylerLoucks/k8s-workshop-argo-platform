@@ -12,7 +12,7 @@ metadata:
 spec:
   project: default
 
-  source:
+  sources:
     - repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
       targetRevision: main
       path: charts/web-ui     # <-- Path to the chart directory
