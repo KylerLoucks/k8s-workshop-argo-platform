@@ -13,13 +13,16 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
-    targetRevision: main
-    path: charts/web-ui     # <-- Path to the chart directory
-    helm:
-      valueFiles:
-        - envs/dev-us/values.yaml
-        - envs/dev-us/version.yaml
+    - repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
+      targetRevision: main
+      path: charts/web-ui     # <-- Path to the chart directory
+      helm:
+        valueFiles:
+          - $values/values/web-ui/dev-us/values.yaml
+          - $values/values/web-ui/dev-us/version.yaml
+    - repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
+      targetRevision: HEAD
+      ref: values
 
   destination:
     server: https://kubernetes.default.svc

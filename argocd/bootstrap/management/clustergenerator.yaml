@@ -41,9 +41,11 @@ spec:
           helm:
             releaseName: web-ui
             valueFiles:
-              - values.yaml
-              - envs/dev-us/values.yaml
-              - envs/dev-us/version.yaml
+              - $values/values/dev-us/web-ui/values.yaml
+              - $values/values/dev-us/web-ui/version.yaml
+        - repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
+          targetRevision: HEAD
+          ref: values
       destination:
         namespace: '{{name}}'
         name: '{{name}}'

@@ -9,7 +9,7 @@ spec:
         repoURL: https://github.com/kylerloucks/k8s-workshop-argo-platform.git
         revision: main
         directories:
-          - path: charts/*        # one Application per folder under envs/dev/
+          - path: charts/*        # one Application per chart folder
   template:
     metadata:
       name: "dev-{{path.basename}}"  # e.g., dev-web-ui, dev-api

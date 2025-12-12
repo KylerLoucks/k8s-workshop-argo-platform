@@ -13,21 +13,19 @@ on:
       source_env:
         description: 'Source environment'
         required: true
-        default: 'qa-us'
+        default: 'dev-us'
         type: choice
         options:
-          - qa-us
-          - staging-us
+          - dev-us
           - prod-us
 
       target_env:
         description: 'Target environment'
         required: true
-        default: 'staging-us'
+        default: 'prod-us'
         type: choice
         options:
-          - qa-us
-          - staging-us
+          - dev-us
           - prod-us
 
       promote_container:
@@ -37,7 +35,7 @@ on:
         default: true
 
       promote_configmaps:
-        description: 'Also promote application settings'
+        description: 'Also promote env overlay values (non-image settings)'
         required: true
         type: boolean
         default: true
@@ -61,15 +59,15 @@ jobs:
         if: ${{ inputs.promote_container }}
         uses: canastro/copy-file-action@master
         with:
-          source: "charts/${{ inputs.app }}/envs/${{ inputs.source_env }}/version.yml"
-          target: "charts/${{ inputs.app }}/envs/${{ inputs.target_env }}/version.yml"
+          source: "values/${{ inputs.source_env }}/${{ inputs.app }}/version.yaml"
+          target: "values/${{ inputs.target_env }}/${{ inputs.app }}/version.yaml"
 
       - name: Copy settings
         if: ${{ inputs.promote_configmaps }}
         uses: canastro/copy-file-action@master
         with:
-          source: "charts/${{ inputs.app }}/envs/${{ inputs.source_env }}/settings.yml"
-          target: "charts/${{ inputs.app }}/envs/${{ inputs.target_env }}/settings.yml"
+          source: "values/${{ inputs.source_env }}/${{ inputs.app }}/values.yaml"
+          target: "values/${{ inputs.target_env }}/${{ inputs.app }}/values.yaml"
 
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:

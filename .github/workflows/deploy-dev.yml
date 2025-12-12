@@ -1,0 +1,169 @@
+name: Build changed apps + PR deploy bump (dev)
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "apps/**"
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+
+concurrency:
+  group: deploy-bump-dev
+  cancel-in-progress: true
+
+env:
+  ENV_NAME: dev-us
+  IMAGE_BASE: ghcr.io/${{ github.repository }}
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      apps_json: ${{ steps.set.outputs.apps_json }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Determine which app directories changed under apps/
+      - name: Detect changed apps
+        id: set
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="${{ github.event.before }}"
+          HEAD="${{ github.sha }}"
+
+          # List files changed under apps/, extract apps/<name>/..., then unique app names
+          mapfile -t APPS < <(git diff --name-only "$BASE" "$HEAD" \
+            | awk -F/ '$1=="apps" && NF>=2 {print $2}' \
+            | sort -u)
+
+          if [[ ${#APPS[@]} -eq 0 ]]; then
+            echo "apps_json=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Build JSON array for matrix
+          JSON="["
+          for a in "${APPS[@]}"; do
+            JSON+="\"$a\","
+          done
+          JSON="${JSON%,}]"
+
+          echo "Changed apps: ${APPS[*]}"
+          echo "apps_json=$JSON" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.apps_json != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.detect.outputs.apps_json) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/${{ matrix.app }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_BASE }}/${{ matrix.app }}:${{ github.sha }}
+          provenance: false
+
+      - name: Write digest output
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIGEST="${{ steps.build.outputs.digest }}"
+          REF="${{ env.IMAGE_BASE }}/${{ matrix.app }}@${DIGEST}"
+          mkdir -p digests
+          echo "${REF}" > "digests/${{ matrix.app }}.txt"
+          echo "Built $REF"
+
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests
+          path: digests/*.txt
+          if-no-files-found: error
+
+  bump-pr:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          name: digests
+          path: digests
+
+      - name: Update values/*/dev-us/version.yaml for built apps
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+          for f in digests/*.txt; do
+            app="$(basename "$f" .txt)"
+            image_ref="$(cat "$f")"
+
+            # Repo layout: values/<app>/<env>/version.yaml
+            version_file="values/${app}/${ENV_NAME}/version.yaml"
+
+            if [[ ! -f "$version_file" ]]; then
+              echo "Missing version file for app '$app': $version_file" >&2
+              exit 1
+            fi
+
+            # Write a minimal, deterministic version file that the Helm chart can consume.
+            cat > "$version_file" <<EOF
+image:
+  ref: ${image_ref}
+EOF
+
+            echo "Updated $version_file -> $image_ref"
+          done
+
+      - name: Create or update deploy PR (dev)
+        uses: peter-evans/create-pull-request@v6
+        with:
+          # Stable branch name so we update the same PR if it already exists
+          branch: deploy/dev
+          delete-branch: false
+
+          title: "deploy: dev"
+          commit-message: "deploy: dev -> ${{ github.sha }}"
+          body: |
+            Automated dev deployment bump for ArgoCD.
+
+            Bumped images for changed apps based on commit `${{ github.sha }}`.
+          labels: |
+            deploy
+            argocd
+            dev
+          add-paths: |
+            values/*/dev-us/version.yaml

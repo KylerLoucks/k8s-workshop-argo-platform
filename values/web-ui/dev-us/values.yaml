@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  # inherit repository/tag from base unless you need to override
+  # inherit repository/tag/digest from base unless you need to override
   pullPolicy: IfNotPresent
 
 ingress:

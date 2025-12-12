@@ -60,3 +60,21 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Resolve the container image reference.
+
+Priority:
+- image.ref (full ref, may include @sha256)
+- image.digest (repo@digest)
+- image.tag (repo:tag)
+*/}}
+{{- define "web-ui.image" -}}
+{{- if .Values.image.ref -}}
+{{- .Values.image.ref -}}
+{{- else if .Values.image.digest -}}
+{{- printf "%s@%s" .Values.image.repository .Values.image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.image.repository .Values.image.tag -}}
+{{- end -}}
+{{- end }}

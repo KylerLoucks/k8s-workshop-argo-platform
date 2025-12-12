@@ -1,7 +1,14 @@
 replicaCount: 2
 image:
-  repository: nginx
-  tag: "stable-alpine"
+  # Default image location for this app (built from apps/web-ui)
+  repository: ghcr.io/kylerloucks/k8s-workshop-argo-platform/web-ui
+  # Used when neither `digest` nor `ref` is set
+  tag: "main"
+  # Optional digest (e.g., "sha256:...") — when set, image becomes "<repository>@<digest>"
+  digest: ""
+  # Optional full image reference — when set, overrides everything above
+  # e.g. "ghcr.io/kylerloucks/k8s-workshop-argo-platform/web-ui@sha256:..."
+  ref: ""
   pullPolicy: IfNotPresent
 service:
   type: ClusterIP

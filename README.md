@@ -7,14 +7,15 @@ This repo ships with **two Terraform stacks** for running ArgoCD platforms:
 - `terraform/k3d`: **local, free k3d-based Kubernetes** for easy Argo CD testing with no cloud bill. See [`terraform/k3d/README.md`](./terraform/k3d/README.md) for tooling prerequisites, local cluster creation, and ArgoCD bootstrap.
 - `terraform/aws`: **full AWS EKS platform** to run the same ArgoCD setup "for real" with controllers and DNS, including **external-dns** and the **AWS Load Balancer Controller**. See [`terraform/aws/README.md`](./terraform/aws/README.md) for AWS prerequisites, controllers, and DNS wiring.
 - `argocd/`: ArgoCD **CRDs and GitOps patterns** (e.g., `ApplicationSet`, `Application`, cluster generators, app-of-apps).
-- `charts/`: Helm charts for each app plus **env-specific values and overlays** (`values.yaml`, `envs/<env>/values.yaml`, `envs/<env>/version.yaml`).
+- `charts/`: Helm charts for each app.
+- `values/`: **env-specific values and overlays** (`values/<app>/<env/values.yaml`, `values/<app>/<env>/version.yaml`).
 
 
 ## ArgoCD - how env overlays and the ApplicationSets work
 
 ### Chart layout and overlays
 - Base chart per app lives under `charts/<app>` (e.g., `charts/web-ui`).
-- Environment overlays live under `charts/<app>/envs/<env>/values.yaml` (e.g., `charts/web-ui/envs/dev-us/values.yaml`).
+- Environment overlays live under `values/<app>/<env>/values.yaml` (e.g., `values/web-ui/dev-us/values.yaml`).
 - Helm merges overlays on top of the base `values.yaml` in order (base first, overlay later). This is where per-env replicas, resources, and ingress hosts are set.
 
 ### ApplicationSet – one Application per chart
@@ -28,7 +29,7 @@ This repo ships with **two Terraform stacks** for running ArgoCD platforms:
 
 ### Switching environments (e.g., prod-us)
 - To deploy a different overlay, change the `helm.valueFiles` in the `ApplicationSet` template:
-  - From `envs/dev-us/values.yaml` to `envs/prod-us/values.yaml`, or
+  - From `../../values/<app>/dev-us/values.yaml` to `../../values/<app>/prod-us/values.yaml`, or
   - Create a separate `ApplicationSet` (e.g., `argocd/bootstrap/prod/applicationset.yaml`) that targets the prod overlay.
 
 ### Promotions (version.yaml override)
@@ -62,8 +63,8 @@ Why this pattern
 
 Minimal GitHub Actions shape
 
-- CI: Build → Push to ECR
-- Dev CD: Image Updater bumps `charts/<app>/envs/dev-us/version.yaml` (no workflow needed; runs as its own controller) → Argo CD syncs (PreSync Hook job runs Migrations and other pre-deploy jobs for the specific app that was updated)
+- CI: Build → Push to GHCR
+- Dev CD: CI/Image Updater bumps `values/<app>/dev-us/version.yaml` → Argo CD syncs
 - Promote: github action `environment` gates → after approval, workflow commits tag to version.yaml → Argo CD syncs
 
 
@@ -71,7 +72,7 @@ Minimal GitHub Actions shape
 Workflow Dispatch (`.github/workflows/promote.yml`) pass in  the lower env’s and higher env's name. The workflow will grab the lower env's `version.yaml` and copy it to the higher env’s `version.yaml`, then commits to the branch Argo watches. Argo detects the change and deploys.
 
 ## Notes
-- Ensure your ApplicationSet lists `envs/<env>/version.yaml` last in `helm.valueFiles` so it wins merges.
+- Ensure your ApplicationSet lists `values/<app>/<env>/version.yaml` last in `helm.valueFiles` so it wins merges.
 - If your migration job must always match the app image, make its chart template inherit the app tag (so you only promote one tag). If you manage a separate migration image tag, also put it in `version.yaml` and have CI write both.
 - For multi-app promotions, add a matrix or run the write step for each app.
 
