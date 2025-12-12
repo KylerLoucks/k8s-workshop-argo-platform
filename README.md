@@ -10,6 +10,23 @@ This repo ships with **two Terraform stacks** for running ArgoCD platforms:
 - `charts/`: Helm charts for each app.
 - `values/`: **env-specific values and overlays** (`values/<app>/<env/values.yaml`, `values/<app>/<env>/version.yaml`).
 
+## GitHub Actions: deploy-dev (auto bump via PR)
+
+The workflow at `.github/workflows/deploy-dev.yml` automates **dev deployments** by:
+
+- **Trigger**: on push to `main` when files under `apps/**` change.
+- **Build & push**: builds Docker images for changed apps and pushes them to **GHCR** tagged with the **short commit SHA**.
+- **GitOps bump**: updates `values/<app>/dev-us/version.yaml` to set `image.tag: <short-sha>`.
+- **PR-based change**: creates (or updates) a single PR from branch `deploy/dev` titled **"deploy: dev"** containing only the version bumps.
+
+### Required repository setting
+
+In the GitHub repo settings, ensure **Actions → General → Workflow permissions** has **"Allow GitHub Actions to create and approve pull requests"** checked; otherwise the PR creation/update step will fail.
+
+### What the PR looks like
+
+![deploy-dev PR example](docs/screenshots/deploy-dev-pr.png)
+
 
 ## ArgoCD - how env overlays and the ApplicationSets work
 
