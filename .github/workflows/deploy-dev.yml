@@ -140,10 +140,7 @@ jobs:
             fi
 
             # Write a minimal, deterministic version file that the Helm chart can consume.
-            cat > "$version_file" <<EOF
-image:
-  ref: ${image_ref}
-EOF
+            printf 'image:\n  ref: %s\n' "$image_ref" > "$version_file"
 
             echo "Updated $version_file -> $image_ref"
           done
