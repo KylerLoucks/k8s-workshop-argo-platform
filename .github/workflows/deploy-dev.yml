@@ -25,41 +25,21 @@ jobs:
   detect:
     runs-on: ubuntu-latest
     outputs:
-      apps_json: ${{ steps.set.outputs.apps_json }}
+      # JSON array of app names (e.g. ["web-ui"]) used directly for the build matrix
+      apps_json: ${{ steps.filter.outputs.changes }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Detect changed apps (paths-filter)
+        id: filter
+        uses: dorny/paths-filter@v3
         with:
-          fetch-depth: 0
-
-      # Determine which app directories changed under apps/
-      - name: Detect changed apps
-        id: set
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          BASE="${{ github.event.before }}"
-          HEAD="${{ github.sha }}"
-
-          # List files changed under apps/, extract apps/<name>/..., then unique app names
-          mapfile -t APPS < <(git diff --name-only "$BASE" "$HEAD" \
-            | awk -F/ '$1=="apps" && NF>=2 {print $2}' \
-            | sort -u)
-
-          if [[ ${#APPS[@]} -eq 0 ]]; then
-            echo "apps_json=[]" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Build JSON array for matrix
-          JSON="["
-          for a in "${APPS[@]}"; do
-            JSON+="\"$a\","
-          done
-          JSON="${JSON%,}]"
-
-          echo "Changed apps: ${APPS[*]}"
-          echo "apps_json=$JSON" >> "$GITHUB_OUTPUT"
+          # Compare the pushed commits range: before..sha
+          base: ${{ github.event.before }}
+          ref: ${{ github.sha }}
+          filters: |
+            web-ui:
+              - 'apps/web-ui/**'
 
   build:
     needs: detect
@@ -73,6 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Make sure the repo url is lowercase
       - name: Compute lowercase image base
         shell: bash
         run: |
@@ -104,25 +85,8 @@ jobs:
             ${{ env.IMAGE_BASE }}/${{ matrix.app }}:${{ steps.get_sha.outputs.sha }}
           provenance: false
 
-      - name: Write digest output
-        shell: bash
-        run: |
-          set -euo pipefail
-          DIGEST="${{ steps.build.outputs.digest }}"
-          REF="${{ env.IMAGE_BASE }}/${{ matrix.app }}@${DIGEST}"
-          mkdir -p digests
-          echo "${REF}" > "digests/${{ matrix.app }}.txt"
-          echo "Built $REF"
-
-      - name: Upload digest artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: digests
-          path: digests/*.txt
-          if-no-files-found: error
-
   bump-pr:
-    needs: build
+    needs: [detect, build]
     runs-on: ubuntu-latest
 
     steps:
@@ -133,21 +97,22 @@ jobs:
         shell: bash
         run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Download digests
-        uses: actions/download-artifact@v4
-        with:
-          name: digests
-          path: digests
+      - name: Install yq
+        uses: mikefarah/yq@v4
 
       - name: Update values/*/dev-us/version.yaml for built apps
         shell: bash
         run: |
           set -euo pipefail
 
-          shopt -s nullglob
-          for f in digests/*.txt; do
-            app="$(basename "$f" .txt)"
-            image_ref="$(cat "$f")"
+          mapfile -t APPS < <(echo '${{ needs.detect.outputs.apps_json }}' | jq -r '.[]')
+          if [[ ${#APPS[@]} -eq 0 ]]; then
+            echo "No changed apps detected; nothing to bump."
+            exit 0
+          fi
+
+          export IMAGE_TAG='${{ steps.get_sha.outputs.sha }}'
+          for app in "${APPS[@]}"; do
 
             # Repo layout: values/<app>/<env>/version.yaml
             version_file="values/${app}/${ENV_NAME}/version.yaml"
@@ -157,10 +122,10 @@ jobs:
               exit 1
             fi
 
-            # Write a minimal, deterministic version file that the Helm chart can consume.
-            printf 'image:\n  ref: %s\n' "$image_ref" > "$version_file"
+            # Update the *tag* (not digest/ref) without rewriting the whole file.
+            yq -i '.image.tag = strenv(IMAGE_TAG)' "$version_file"
 
-            echo "Updated $version_file -> $image_ref"
+            echo "Updated $version_file -> tag=${{ steps.get_sha.outputs.sha }}"
           done
 
       - name: Create or update deploy PR (dev)
