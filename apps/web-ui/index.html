@@ -2,10 +2,315 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>GHCR Build Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>web-ui · Deployed Helm Values</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #111a2e;
+        --muted: #93a4c7;
+        --text: #e7eefc;
+        --border: rgba(255, 255, 255, 0.10);
+        --accent: #6aa7ff;
+        --danger: #ff6a7a;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: radial-gradient(1000px 600px at 20% 0%, rgba(106, 167, 255, 0.15), transparent 60%),
+          radial-gradient(1000px 600px at 80% 0%, rgba(142, 255, 201, 0.10), transparent 60%),
+          var(--bg);
+        color: var(--text);
+        line-height: 1.35;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      header {
+        padding: 24px 18px 12px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(17, 26, 46, 0.65);
+        backdrop-filter: blur(8px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      header h1 { margin: 0 0 6px; font-size: 18px; letter-spacing: 0.2px; }
+      header p { margin: 0; color: var(--muted); font-size: 13px; }
+      main { padding: 16px 18px 28px; max-width: 1100px; margin: 0 auto; }
+      .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+      @media (min-width: 980px) { .grid { grid-template-columns: 1fr 1fr; } }
+      .card {
+        background: rgba(17, 26, 46, 0.70);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+        overflow: hidden;
+      }
+      .card h2 { margin: 0 0 10px; font-size: 14px; color: #d8e4ff; }
+      .row { display: grid; grid-template-columns: 160px 1fr; gap: 10px; padding: 6px 0; border-top: 1px dashed rgba(255,255,255,0.10); }
+      .row:first-of-type { border-top: 0; }
+      .k { color: var(--muted); font-size: 12px; }
+      .v { font-size: 12px; word-break: break-word; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        background: rgba(0,0,0,0.2);
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        color: var(--muted);
+        margin-right: 8px;
+        margin-top: 8px;
+      }
+      .pill strong { color: var(--text); font-weight: 600; }
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 10px 0 0;
+      }
+      .toolbar input {
+        flex: 1 1 260px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(0,0,0,0.25);
+        color: var(--text);
+        outline: none;
+      }
+      .btn {
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(0,0,0,0.25);
+        color: var(--text);
+        cursor: pointer;
+        user-select: none;
+      }
+      .btn:hover { border-color: rgba(255,255,255,0.18); }
+      .status { margin-top: 10px; font-size: 12px; color: var(--muted); }
+      .status.error { color: var(--danger); }
+      pre {
+        margin: 0;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(0,0,0,0.25);
+        overflow: auto;
+        max-height: 70vh;
+        font-size: 12px;
+        line-height: 1.35;
+        white-space: pre;
+      }
+      .small { font-size: 12px; color: var(--muted); }
+    </style>
   </head>
   <body>
-    <h1>It works ✅</h1>
-    <p>If you can see this, your image build + push is good and the env overlay is applied.</p>
+    <header>
+      <h1>Deployed Helm Values Viewer</h1>
+      <p>
+        This page is rendered from your running pod and reads the mounted Helm-rendered values at
+        <code>/meta/deployed-values.json</code>.
+      </p>
+      <div id="pills"></div>
+    </header>
+
+    <main>
+      <div class="grid">
+        <section class="card">
+          <h2>Deployment context</h2>
+          <div id="context"></div>
+          <div class="status" id="status"></div>
+        </section>
+
+        <section class="card">
+          <h2>Highlights</h2>
+          <div id="highlights"></div>
+          <div class="small" style="margin-top: 10px;">
+            Tip: the “overlays” list comes from <code>.Values.deploymentContext.valueFiles</code> (set in your env value files).
+          </div>
+        </section>
+      </div>
+
+      <section class="card" style="margin-top: 14px;">
+        <h2>All deployed values</h2>
+        <div class="toolbar">
+          <input id="filter" placeholder="Filter (client-side) — e.g. ingress, image, resources, ENV_NAME" />
+          <button class="btn" id="btn-json">Show JSON</button>
+          <button class="btn" id="btn-yaml">Show YAML</button>
+          <button class="btn" id="btn-copy">Copy</button>
+          <button class="btn" id="btn-refresh">Refresh</button>
+        </div>
+        <div style="margin-top: 12px;">
+          <pre id="viewer">Loading…</pre>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      function safeGet(obj, path, fallback = "") {
+        try {
+          return path.split(".").reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj) ?? fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      async function fetchJson(url) {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
+        return await res.json();
+      }
+
+      async function fetchText(url) {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
+        return await res.text();
+      }
+
+      function fmtList(xs) {
+        if (!Array.isArray(xs) || xs.length === 0) return "—";
+        return xs.map((x) => `<div class="v"><code>${escapeHtml(String(x))}</code></div>`).join("");
+      }
+
+      function escapeHtml(s) {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      }
+
+      function renderRows(targetEl, rows) {
+        targetEl.innerHTML = rows
+          .map(
+            ([k, v]) => `
+              <div class="row">
+                <div class="k">${escapeHtml(k)}</div>
+                <div class="v">${v}</div>
+              </div>
+            `
+          )
+          .join("");
+      }
+
+      function setPills({ envName, overlayName, image, namespace, revision }) {
+        const pills = [];
+        if (envName) pills.push(`<span class="pill"><strong>ENV</strong> ${escapeHtml(envName)}</span>`);
+        if (overlayName) pills.push(`<span class="pill"><strong>Overlay</strong> ${escapeHtml(overlayName)}</span>`);
+        if (namespace) pills.push(`<span class="pill"><strong>Namespace</strong> ${escapeHtml(namespace)}</span>`);
+        if (String(revision || "") !== "") pills.push(`<span class="pill"><strong>Helm rev</strong> ${escapeHtml(String(revision))}</span>`);
+        if (image) pills.push(`<span class="pill"><strong>Image</strong> ${escapeHtml(image)}</span>`);
+        $("pills").innerHTML = pills.join("");
+      }
+
+      let rawJson = "";
+      let rawYaml = "";
+      let showing = "json";
+
+      function applyFilter() {
+        const q = $("filter").value.trim().toLowerCase();
+        const base = showing === "yaml" ? rawYaml : rawJson;
+        if (!q) {
+          $("viewer").textContent = base;
+          return;
+        }
+        const filtered = base
+          .split("\n")
+          .filter((line) => line.toLowerCase().includes(q))
+          .join("\n");
+        $("viewer").textContent = filtered || "(no matches)";
+      }
+
+      async function load() {
+        $("status").className = "status";
+        $("status").textContent = "Loading /meta/release.json + /meta/deployed-values.json …";
+
+        const [release, values, yaml] = await Promise.all([
+          fetchJson("/meta/release.json"),
+          fetchJson("/meta/deployed-values.json"),
+          fetchText("/meta/deployed-values.yaml"),
+        ]);
+
+        const envName = safeGet(values, "config.ENV_NAME", safeGet(values, "podAnnotations.environment", ""));
+        const overlayName = safeGet(values, "deploymentContext.overlayName", "");
+        const overlayFiles = safeGet(values, "deploymentContext.valueFiles", []);
+
+        const ingressEnabled = !!safeGet(values, "ingress.enabled", false);
+        const ingressHosts = (safeGet(values, "ingress.hosts", []) || []).map((h) => h && h.host).filter(Boolean);
+
+        setPills({
+          envName,
+          overlayName,
+          image: safeGet(release, "image", ""),
+          namespace: safeGet(release, "namespace", ""),
+          revision: safeGet(release, "revision", ""),
+        });
+
+        renderRows($("context"), [
+          ["Release", `<code>${escapeHtml(String(safeGet(release, "name", "")))}</code>`],
+          ["Namespace", `<code>${escapeHtml(String(safeGet(release, "namespace", "")))}</code>`],
+          ["Chart", `<code>${escapeHtml(String(safeGet(release, "chart.name", "")))}-${escapeHtml(String(safeGet(release, "chart.version", "")))}</code>`],
+          ["Rendered at", `<code>${escapeHtml(String(safeGet(release, "renderedAt", "")))}</code>`],
+        ]);
+
+        renderRows($("highlights"), [
+          ["Environment", envName ? `<code>${escapeHtml(envName)}</code>` : "—"],
+          ["Overlay", overlayName ? `<code>${escapeHtml(overlayName)}</code>` : "—"],
+          ["Overlay files", fmtList(overlayFiles)],
+          ["Image", safeGet(release, "image", "") ? `<code>${escapeHtml(String(safeGet(release, "image", "")))}</code>` : "—"],
+          ["Replicas", `<code>${escapeHtml(String(safeGet(values, "replicaCount", "")))}</code>`],
+          ["Ingress", ingressEnabled ? "enabled" : "disabled"],
+          ["Ingress hosts", ingressHosts.length ? ingressHosts.map((h) => `<div class="v"><code>${escapeHtml(h)}</code></div>`).join("") : "—"],
+        ]);
+
+        rawJson = JSON.stringify(values, null, 2);
+        rawYaml = yaml;
+        showing = "json";
+        $("viewer").textContent = rawJson;
+        $("status").textContent = "Loaded successfully.";
+      }
+
+      $("btn-json").addEventListener("click", () => {
+        showing = "json";
+        applyFilter();
+      });
+      $("btn-yaml").addEventListener("click", () => {
+        showing = "yaml";
+        applyFilter();
+      });
+      $("filter").addEventListener("input", applyFilter);
+      $("btn-refresh").addEventListener("click", async () => {
+        try {
+          await load();
+          applyFilter();
+        } catch (e) {
+          $("status").className = "status error";
+          $("status").textContent = `Error: ${e?.message || e}`;
+          $("viewer").textContent = "Failed to load meta files. Verify the Helm chart mounted /meta/* correctly.";
+        }
+      });
+      $("btn-copy").addEventListener("click", async () => {
+        const txt = $("viewer").textContent || "";
+        try {
+          await navigator.clipboard.writeText(txt);
+          $("status").textContent = "Copied to clipboard.";
+        } catch {
+          $("status").textContent = "Copy failed (clipboard permissions).";
+        }
+      });
+
+      (async () => {
+        try {
+          await load();
+        } catch (e) {
+          $("status").className = "status error";
+          $("status").textContent = `Error: ${e?.message || e}`;
+          $("viewer").textContent =
+            "Failed to load meta files.\n\nExpected URLs:\n- /meta/release.json\n- /meta/deployed-values.json\n- /meta/deployed-values.yaml\n\nIf those 404, ensure the chart is deployed with the updated templates.";
+        }
+      })();
+    </script>
   </body>
 </html>

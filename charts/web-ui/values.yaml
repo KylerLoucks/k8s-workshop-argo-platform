@@ -51,3 +51,16 @@ probe:
   readiness:
     path: /
     port: http
+
+# Optional: helps the web-ui display "which overlays/valueFiles were applied" and other GitOps context.
+# This is meant to be set in env overlays under `values/web-ui/<env>/`.
+deploymentContext:
+  overlayName: ""
+  valueFiles: []
+  repoURL: ""
+  targetRevision: ""
+  git:
+    sha: ""
+    branch: ""
+  pipeline:
+    runId: ""

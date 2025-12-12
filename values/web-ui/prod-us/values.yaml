@@ -30,3 +30,9 @@ podAnnotations:
 
 config:
   ENV_NAME: prod-us
+
+deploymentContext:
+  overlayName: prod-us
+  valueFiles:
+    - values/web-ui/prod-us/values.yaml
+    - values/web-ui/prod-us/version.yaml

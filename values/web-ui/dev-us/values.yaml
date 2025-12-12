@@ -28,3 +28,9 @@ podAnnotations:
 
 config:
   ENV_NAME: dev-us
+
+deploymentContext:
+  overlayName: dev-us
+  valueFiles:
+    - values/web-ui/dev-us/values.yaml
+    - values/web-ui/dev-us/version.yaml
