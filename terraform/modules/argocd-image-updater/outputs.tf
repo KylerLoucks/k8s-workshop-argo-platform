@@ -1,8 +1,3 @@
-output "argocd" {
-  description = "Argocd helm release"
-  value       = try(helm_release.argocd[0], null)
-}
-
 output "image_updater" {
   description = "Argo CD Image Updater Helm release (if enabled)"
   value       = try(helm_release.image_updater[0], null)

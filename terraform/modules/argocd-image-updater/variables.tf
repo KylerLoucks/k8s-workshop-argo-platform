@@ -10,7 +10,7 @@ variable "image_updater" {
   default     = {}
 }
 
-variable "image_updater_create_iam_role" {
+variable "create_role" {
   description = "Whether this module should create an IAM role for the Argo CD Image Updater service account (IRSA). If false, set image_updater_iam_role_arn to use an existing role."
   type        = bool
   default     = false
@@ -45,8 +45,8 @@ variable "image_updater_irsa_oidc_provider_arn" {
   default     = null
 
   validation {
-    condition     = !var.image_updater_create_iam_role || var.image_updater_irsa_oidc_provider_arn != null
-    error_message = "image_updater_irsa_oidc_provider_arn must be set when image_updater_create_iam_role = true."
+    condition     = !var.create_role || var.image_updater_irsa_oidc_provider_arn != null
+    error_message = "image_updater_irsa_oidc_provider_arn must be set when create_role = true."
   }
 }
 
@@ -56,8 +56,8 @@ variable "image_updater_irsa_oidc_provider_url" {
   default     = null
 
   validation {
-    condition     = !var.image_updater_create_iam_role || var.image_updater_irsa_oidc_provider_url != null
-    error_message = "image_updater_irsa_oidc_provider_url must be set when image_updater_create_iam_role = true."
+    condition     = !var.create_role || var.image_updater_irsa_oidc_provider_url != null
+    error_message = "image_updater_irsa_oidc_provider_url must be set when create_role = true."
   }
 }
 

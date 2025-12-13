@@ -1,8 +1,15 @@
+data "aws_caller_identity" "current" {
+  count = local.create_role ? 1 : 0
+}
+data "aws_partition" "current" {
+  count = local.create_role ? 1 : 0
+}
+
 ################################################################################
 # ArgoCD Image Updater
 ################################################################################
 locals {
-  create_image_updater_iam = var.create && var.image_updater_create_iam_role
+  create_role = var.create && var.create_role
 
   # Chart-derived defaults
   image_updater_namespace = try(var.image_updater.namespace, "argocd")
@@ -10,15 +17,15 @@ locals {
   # IAM naming
   iam_role_name = coalesce(try(var.image_updater.iam_role_name, null), "argocd-image-updater")
 
-  account_id = data.aws_caller_identity.current.account_id
-  partition  = data.aws_partition.current.partition
+  account_id = try(data.aws_caller_identity.current[0].account_id, "*")
+  partition  = try(data.aws_partition.current[0].partition, "*")
 
   iam_role_policy_prefix = "arn:${local.partition}:iam::aws:policy"
 
   # Canonical role ARN (created or provided)
   image_updater_role_arn = coalesce(one(aws_iam_role.image_updater[*].arn), var.image_updater_iam_role_arn)
 
-  attach_default_image_updater_policies = local.create_image_updater_iam && var.image_updater_attach_default_policies
+  attach_default_image_updater_policies = local.create_role && var.image_updater_attach_default_policies
 
   image_updater_iam_role_policies = { for k, v in {
     AmazonEC2ContainerRegistryReadOnly = "${local.iam_role_policy_prefix}/AmazonEC2ContainerRegistryReadOnly",
@@ -33,7 +40,7 @@ locals {
 }
 
 data "aws_iam_policy_document" "image_updater_assume_role_policy" {
-  count = local.create_image_updater_iam ? 1 : 0
+  count = local.create_role ? 1 : 0
 
   statement {
     sid     = "ImageUpdaterAssumeRoleWithWebIdentity"
@@ -62,7 +69,7 @@ data "aws_iam_policy_document" "image_updater_assume_role_policy" {
 }
 
 resource "aws_iam_role" "image_updater" {
-  count = local.create_image_updater_iam ? 1 : 0
+  count = local.create_role ? 1 : 0
 
   name        = try(var.image_updater.iam_role_use_name_prefix, false) ? null : local.iam_role_name
   name_prefix = try(var.image_updater.iam_role_use_name_prefix, false) ? "${local.iam_role_name}${var.prefix_separator}" : null
@@ -85,7 +92,7 @@ resource "aws_iam_role_policy_attachment" "image_updater_default" {
 }
 
 resource "aws_iam_role_policy_attachment" "image_updater_additional" {
-  for_each = local.create_image_updater_iam ? var.image_updater_additional_policy_arns : {}
+  for_each = local.create_role ? var.image_updater_additional_policy_arns : {}
 
   policy_arn = each.value
   role       = aws_iam_role.image_updater[0].name
@@ -133,6 +140,4 @@ resource "helm_release" "image_updater" {
   postrender    = try(var.image_updater.postrender, null)
   set           = concat(local.image_updater_irsa_set, try(var.image_updater.set, []))
   set_sensitive = try(var.image_updater.set_sensitive, [])
-
-  depends_on = [helm_release.argocd]
 }
