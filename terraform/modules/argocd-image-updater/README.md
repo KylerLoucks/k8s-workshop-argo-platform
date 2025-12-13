@@ -60,7 +60,6 @@ If you prefer to create IAM resources outside this module, pass an existing role
 module "argocd_image_updater" {
   source = "../modules/argocd-image-updater"
 
-  enable_image_updater      = true
   image_updater_create_iam_role = false
   image_updater_iam_role_arn = aws_iam_role.argocd_image_updater.arn
 
@@ -76,7 +75,6 @@ module "argocd_image_updater" {
 module "argocd_image_updater" {
   source = "../modules/argocd-image-updater"
 
-  enable_image_updater          = true
   image_updater_create_iam_role = true
 
   image_updater_irsa_oidc_provider_arn = module.eks.oidc_provider_arn

@@ -92,7 +92,7 @@ resource "aws_iam_role_policy_attachment" "image_updater_additional" {
 }
 
 resource "helm_release" "image_updater" {
-  count = var.create && var.enable_image_updater ? 1 : 0
+  count = var.create ? 1 : 0
 
   name             = try(var.image_updater.name, "argocd-image-updater")
   description      = try(var.image_updater.description, "A Helm chart to install ArgoCD Image Updater")

@@ -4,13 +4,6 @@ variable "create" {
   default     = true
 }
 
-# Image Updater
-variable "enable_image_updater" {
-  description = "Enable ArgoCD Image Updater"
-  type        = bool
-  default     = false
-}
-
 variable "image_updater" {
   description = "argocd image updater helm options"
   type        = any
