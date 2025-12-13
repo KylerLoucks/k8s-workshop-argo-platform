@@ -222,14 +222,18 @@ module "argocd" {
 
   repositories = {
     kubernetes = {
-      repo            = "git@github.com:KylerLoucks/kubernetes.git"
-      project         = "default"
-      enable_lfs      = true
-      insecure        = false
-      enable_oci      = true
-      ssh_private_key = file("~/.ssh/argocd_ed25519")
+      repo       = "https://github.com/KylerLoucks/kubernetes.git"
+      project    = "default"
+      name       = "kubernetes"
+      enable_lfs = false
+      insecure   = false
+
+      github_app_id              = "2393963"
+      github_app_installation_id = "97557408"
+      github_app_private_key     = file("~/.ssh/argoapp-private-key.pem") # Github App Secret
     }
   }
+
 
   depends_on = [
     data.kubernetes_secret_v1.argocd_manager_token,

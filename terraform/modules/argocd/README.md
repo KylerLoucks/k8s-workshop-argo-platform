@@ -64,12 +64,40 @@ module "argocd" {
   }
 
   repositories = {
-    my-repo = {
-      repo            = "git@github.com:my-org/my-repo.git"
+    # Git repo via ssh Deploy Key
+    my_repo = {
+      repo            = "git@github.com:<git-org>/<my-repo>.git"
       project         = "default"
       enable_lfs      = true
       insecure        = false
       ssh_private_key = file("~/.ssh/argocd_ed25519")
+    }
+
+    # Git repo via Github App
+    my_repo = {
+      # Must use https instead of SSH with GH Apps
+      repo            = "https://github.com/<git-org>/<my-repo>.git"
+      project         = "default"
+      enable_lfs      = false
+      insecure        = false
+
+      github_app_id              = "2393963"
+      github_app_installation_id = "97557408"
+      github_app_private_key     = file("~/.ssh/argoapp-private-key.pem") # Github App Secret
+    }
+
+    # Github container registry repo
+    ghcr_helm_repo = {
+      repo = "ghcr.io/<git-org>/charts"
+      type = "helm"
+      name = "ghcr-charts"
+
+      enable_oci = true
+      username   = data.sops_file.secrets.data["github_oci_user"]  # username used to auth
+      password   = data.sops_file.secrets.data["github_oci_token"] # access token
+
+      project  = "default"
+      insecure = false
     }
   }
 
@@ -83,7 +111,7 @@ module "argocd" {
       destination_namespace = "argocd"
       sources = [
         {
-          repo_url = "git@github.com:my-org/my-repo.git"
+          repo_url = "git@github.com:<git-org>/<my-repo>.git"
           path     = "argocd/bootstrap"
         }
       ]
@@ -109,7 +137,7 @@ module "argocd" {
       project   = "default"
       sources = [
         {
-          repo_url        = "https://github.com/kylerloucks/k8s-workshop-argo-platform.git"
+          repo_url        = "https://github.com/<git-org>/<my-repo>.git"
           target_revision = "main"
           path            = "argocd/bootstrap/management"
           kustomize = {

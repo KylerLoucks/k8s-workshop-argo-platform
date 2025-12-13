@@ -224,7 +224,7 @@ resource "argocd_application" "app_of_apps" {
 ################################################################################
 resource "argocd_repository" "repository" {
   for_each = var.create ? var.repositories : {}
-
+  name = try(each.value.name, null)
   repo = try(each.value.repo, null)
 
   bearer_token    = try(each.value.bearer_token, null)
@@ -242,7 +242,6 @@ resource "argocd_repository" "repository" {
   githubapp_private_key     = try(each.value.github_app_private_key, null)
 
   # Helm repository Settings
-  name       = try(each.value.name, null)
   enable_oci = try(each.value.enable_oci, false)
 
   tls_client_cert_data = try(each.value.tls_client_cert_data, null)
