@@ -48,7 +48,7 @@ on:
         description: 'Commit message'
         required: true
         type: string
-        default: 'Promote ${inputs.app} from ${inputs.source_env} to ${inputs.target_env}'
+        default: 'Application promotion'
 
 jobs:
   promote:
