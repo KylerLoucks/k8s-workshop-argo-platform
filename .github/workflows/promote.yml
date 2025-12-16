@@ -10,6 +10,10 @@ on:
         description: "app name (web-ui or my-api)"
         required: true
         default: "web-ui"
+        type: choice
+        options:
+          - web-ui
+          - my-api
       source_env:
         description: 'Source environment'
         required: true
@@ -52,8 +56,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Copy container tag
         if: ${{ inputs.promote_container }}
@@ -69,6 +75,6 @@ jobs:
           source: "values/${{ inputs.source_env }}/${{ inputs.app }}/values.yaml"
           target: "values/${{ inputs.target_env }}/${{ inputs.app }}/values.yaml"
 
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      - uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: ${{ inputs.message }}
