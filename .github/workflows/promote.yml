@@ -1,5 +1,6 @@
 # Promote a GitOps application from one environment to the next
 name: Promote application
+description: Promote or demote a GitOps application from one environment to the next 
 
 # Controls when the workflow will run
 on:
