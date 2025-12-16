@@ -1,0 +1,38 @@
+replicaCount: 3
+
+image:
+  pullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  hosts:
+    - host: web-ui.prod-us.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+podAnnotations:
+  environment: prod-us
+
+config:
+  ENV_NAME: prod-us
+
+deploymentContext:
+  overlayName: prod-us
+  valueFiles:
+    - values/web-ui/prod-us/values.yaml
+    - values/web-ui/prod-us/version.yaml

@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "app name (web-ui or my-api)"
+        description: "app name (web-ui or api)"
         required: true
         default: "web-ui"
         type: choice
         options:
           - web-ui
-          - my-api
+          - api
       source_env:
         description: 'Source environment'
         required: true
