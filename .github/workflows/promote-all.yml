@@ -20,7 +20,7 @@ on:
         options:
           - dev-us
           - prod-us
-          
+
       message:
         description: "Commit message"
         required: true
@@ -32,87 +32,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  validate:
-    name: Validate inputs
+  promote:
+    name: Promote
     runs-on: ubuntu-latest
-    outputs:
-      proceed: ${{ steps.validate.outputs.proceed }}
-    steps:
-      - id: validate
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ "${{ inputs.source_env }}" = "${{ inputs.target_env }}" ]; then
-            echo "source_env and target_env are the same; nothing to promote." >&2
-            exit 1
-          fi
-
-          echo "proceed=true" >> "$GITHUB_OUTPUT"
-
-  discover-apps:
-    name: Discover promotable Helm apps
-    runs-on: ubuntu-latest
-    needs: [validate]
-    if: ${{ needs.validate.outputs.proceed == 'true' }}
-    outputs:
-      apps: ${{ steps.discover.outputs.apps }}
-    steps:
-      - uses: actions/checkout@v5
-      - id: discover
-        name: List Helm apps (JSON)
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Discover charts by presence of helm/<app>/Chart.yaml
-          apps_json=$(
-            for chart in charts/*/Chart.yaml; do
-              [ -f "$chart" ] || continue
-              basename "$(dirname "$chart")"
-            done | sort -u | jq -R . | jq -s -c .
-          )
-
-          if [ "$apps_json" = "[]" ]; then
-            echo "No Helm apps discovered under ./charts/*/Chart.yaml" >&2
-            exit 1
-          fi
-
-          echo "Discovered apps: $apps_json"
-          echo "apps=$apps_json" >> "$GITHUB_OUTPUT"
-
-  copy:
-    name: Copy version file (per app)
-    needs: [validate, discover-apps]
-    runs-on: ubuntu-latest
-    if: ${{ needs.validate.outputs.proceed == 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        app: ${{ fromJson(needs.discover-apps.outputs.apps) }}
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Copy image tag from ${{ inputs.source_env }} to ${{ inputs.target_env }}
-        # If the source and target files already have identical contents, this ends up being a no-op:
-        # there will be no git diff, so the final commit step will simply make no commit and still succeed.
-        uses: canastro/copy-file-action@master
-        with:
-          source: values/${{ matrix.app }}/${{ inputs.source_env }}/version.yaml
-          target: values/${{ matrix.app }}/${{ inputs.target_env }}/version.yaml
-
-      - name: Upload promoted version file
-        uses: actions/upload-artifact@v4
-        with:
-          name: promoted-${{ matrix.app }}
-          path: values/${{ matrix.app }}/${{ inputs.target_env }}/version.yaml
-          if-no-files-found: error
-
-  commit:
-    name: Commit promotion
-    needs: [validate, copy]
-    runs-on: ubuntu-latest
-    if: ${{ needs.validate.outputs.proceed == 'true' }}
     permissions:
       contents: write
     steps:
@@ -120,15 +42,44 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download promoted files
-        uses: actions/download-artifact@v4
-        with:
-          pattern: promoted-*
-          merge-multiple: true
-          path: .
+      - name: Validate and promote version.yaml for all apps
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v7
+          if [[ "${{ inputs.source_env }}" == "${{ inputs.target_env }}" ]]; then
+            echo "source_env and target_env are the same; nothing to promote." >&2
+            exit 1
+          fi
+
+          apps=()
+          for chart in charts/*/Chart.yaml; do
+            [[ -f "$chart" ]] || continue
+            apps+=( "$(basename "$(dirname "$chart")")" )
+          done
+
+          if [[ ${#apps[@]} -eq 0 ]]; then
+            echo "No Helm apps discovered under ./charts/*/Chart.yaml" >&2
+            exit 1
+          fi
+
+          # Preflight (all-or-nothing): ensure every app has required files/dirs
+          for app in "${apps[@]}"; do
+            src_dir="values/${app}/${{ inputs.source_env }}"
+            dst_dir="values/${app}/${{ inputs.target_env }}"
+            src_file="${src_dir}/version.yaml"
+
+            [[ -d "${src_dir}" ]] || { echo "Missing directory: ${src_dir}" >&2; exit 1; }
+            [[ -d "${dst_dir}" ]] || { echo "Missing directory: ${dst_dir}" >&2; exit 1; }
+            [[ -f "${src_file}" ]] || { echo "Missing file: ${src_file}" >&2; exit 1; }
+          done
+
+          # Promote
+          for app in "${apps[@]}"; do
+            cp "values/${app}/${{ inputs.source_env }}/version.yaml" "values/${app}/${{ inputs.target_env }}/version.yaml"
+          done
+
+      - uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: ${{ inputs.message }}
 
