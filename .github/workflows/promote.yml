@@ -1,6 +1,5 @@
 # Promote a GitOps application from one environment to the next
 name: Promote application
-description: Promote or demote a GitOps application from one environment to the next 
 
 # Controls when the workflow will run
 on:
@@ -53,21 +52,19 @@ on:
 
 jobs:
   promote:
-
     # Allow the job to write to the repository
     permissions:
       contents: write
 
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
     steps:
-
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.head_ref }}
 
-      - name: Copy container tag
+      
+      - name: Copy image tag from ${{ inputs.source_env }} to ${{ inputs.target_env }}
         if: ${{ inputs.promote_container }}
         uses: canastro/copy-file-action@master
         with:
@@ -78,8 +75,8 @@ jobs:
         if: ${{ inputs.promote_configmaps }}
         uses: canastro/copy-file-action@master
         with:
-          source: "values/${{ inputs.app }}/${{ inputs.source_env }}/values.yaml"
-          target: "values/${{ inputs.app }}/${{ inputs.target_env }}/values.yaml"
+          source: "values/${{ inputs.app }}/${{ inputs.source_env }}/settings.yaml"
+          target: "values/${{ inputs.app }}/${{ inputs.target_env }}/settings.yaml"
 
       - uses: stefanzweifel/git-auto-commit-action@v7
         with:
