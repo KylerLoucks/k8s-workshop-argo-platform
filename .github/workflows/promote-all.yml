@@ -1,4 +1,4 @@
-name: Promote all applications in a single commit
+name: Promote all applications (all-or-nothing)
 
 on:
   workflow_dispatch:
@@ -63,6 +63,9 @@ jobs:
             exit 1
           fi
 
+          echo "Discovered apps: ${apps[*]}"
+          echo "Promoting version.yaml from '${{ inputs.source_env }}' -> '${{ inputs.target_env }}'"
+
           # Preflight (all-or-nothing): ensure every app has required files/dirs
           for app in "${apps[@]}"; do
             src_dir="values/${app}/${{ inputs.source_env }}"
@@ -72,12 +75,26 @@ jobs:
             [[ -d "${src_dir}" ]] || { echo "Missing directory: ${src_dir}" >&2; exit 1; }
             [[ -d "${dst_dir}" ]] || { echo "Missing directory: ${dst_dir}" >&2; exit 1; }
             [[ -f "${src_file}" ]] || { echo "Missing file: ${src_file}" >&2; exit 1; }
+            echo "Preflight OK: ${app} (${src_file} -> ${dst_dir}/version.yaml)"
           done
 
           # Promote
           for app in "${apps[@]}"; do
-            cp "values/${app}/${{ inputs.source_env }}/version.yaml" "values/${app}/${{ inputs.target_env }}/version.yaml"
+            src="values/${app}/${{ inputs.source_env }}/version.yaml"
+            dst="values/${app}/${{ inputs.target_env }}/version.yaml"
+
+            echo "----"
+            echo "Promoting app '${app}': ${src} -> ${dst}"
+            echo "Source contents:"
+            cat "${src}"
+
+            cp "${src}" "${dst}"
+
+            echo "Target contents after copy:"
+            cat "${dst}"
           done
+
+          echo "Promotion complete."
 
       - uses: stefanzweifel/git-auto-commit-action@v7
         with:
