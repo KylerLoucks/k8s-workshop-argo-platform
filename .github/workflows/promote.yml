@@ -65,15 +65,15 @@ jobs:
         if: ${{ inputs.promote_container }}
         uses: canastro/copy-file-action@master
         with:
-          source: "values/${{ inputs.source_env }}/${{ inputs.app }}/version.yaml"
-          target: "values/${{ inputs.target_env }}/${{ inputs.app }}/version.yaml"
+          source: "values/${{ inputs.app }}/${{ inputs.source_env }}/version.yaml"
+          target: "values/${{ inputs.app }}/${{ inputs.target_env }}/version.yaml"
 
       - name: Copy settings
         if: ${{ inputs.promote_configmaps }}
         uses: canastro/copy-file-action@master
         with:
-          source: "values/${{ inputs.source_env }}/${{ inputs.app }}/values.yaml"
-          target: "values/${{ inputs.target_env }}/${{ inputs.app }}/values.yaml"
+          source: "values/${{ inputs.app }}/${{ inputs.source_env }}/values.yaml"
+          target: "values/${{ inputs.app }}/${{ inputs.target_env }}/values.yaml"
 
       - uses: stefanzweifel/git-auto-commit-action@v7
         with:
