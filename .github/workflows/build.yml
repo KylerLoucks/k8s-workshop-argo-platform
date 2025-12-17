@@ -1,4 +1,4 @@
-name: Build changed apps + PR deploy bump (dev)
+name: Build changed apps and push to GHCR
 
 on:
   push:
@@ -8,11 +8,10 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
   packages: write
 
 concurrency:
-  group: deploy-bump-dev
+  group: build
   cancel-in-progress: true
 
 env:
@@ -40,6 +39,18 @@ jobs:
           filters: |
             web-ui:
               - 'apps/web-ui/**'
+            api:
+              - 'apps/api/**'
+
+      - name: Persist changed apps list
+        shell: bash
+        run: echo '${{ steps.filter.outputs.changes }}' > changed-apps.json
+
+      - name: Upload changed apps artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: changed-apps-${{ github.run_id }}
+          path: changed-apps.json
 
   build:
     needs: detect
@@ -84,66 +95,3 @@ jobs:
           tags: |
             ${{ env.IMAGE_BASE }}/${{ matrix.app }}:${{ steps.get_sha.outputs.sha }}
           provenance: false
-
-  bump-pr:
-    needs: [detect, build]
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Get short SHA
-        id: get_sha
-        shell: bash
-        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Install yq
-        uses: mikefarah/yq@v4
-
-      - name: Update values/*/dev-us/version.yaml for built apps
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          mapfile -t APPS < <(echo '${{ needs.detect.outputs.apps_json }}' | jq -r '.[]')
-          if [[ ${#APPS[@]} -eq 0 ]]; then
-            echo "No changed apps detected; nothing to bump."
-            exit 0
-          fi
-
-          export IMAGE_TAG='${{ steps.get_sha.outputs.sha }}'
-          for app in "${APPS[@]}"; do
-
-            # Repo layout: values/<app>/<env>/version.yaml
-            version_file="values/${app}/${ENV_NAME}/version.yaml"
-
-            if [[ ! -f "$version_file" ]]; then
-              echo "Missing version file for app '$app': $version_file" >&2
-              exit 1
-            fi
-
-            # Update the *tag* (not digest/ref) without rewriting the whole file.
-            yq -i '.image.tag = strenv(IMAGE_TAG)' "$version_file"
-
-            echo "Updated $version_file -> tag=${{ steps.get_sha.outputs.sha }}"
-          done
-
-      - name: Create or update deploy PR (dev)
-        uses: peter-evans/create-pull-request@v6
-        with:
-          # Stable branch name so we update the same PR if it already exists
-          branch: deploy/dev
-          delete-branch: false
-
-          title: "deploy: dev"
-          commit-message: "deploy: dev -> ${{ steps.get_sha.outputs.sha }}"
-          body: |
-            Automated dev deployment bump for ArgoCD.
-
-            Bumped images for changed apps based on commit `${{ github.sha }}` (short: `${{ steps.get_sha.outputs.sha }}`).
-          labels: |
-            deploy
-            argocd
-            dev
-          add-paths: |
-            values/*/dev-us/version.yaml

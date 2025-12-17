@@ -1,3 +1,4 @@
+# This workflow will promote all applications from one environment to the next in a single commit.
 name: Promote all applications (all-or-nothing)
 
 on:
@@ -71,11 +72,13 @@ jobs:
             src_dir="values/${app}/${{ inputs.source_env }}"
             dst_dir="values/${app}/${{ inputs.target_env }}"
             src_file="${src_dir}/version.yaml"
+            dst_file="${dst_dir}/version.yaml"
 
             [[ -d "${src_dir}" ]] || { echo "Missing directory: ${src_dir}" >&2; exit 1; }
             [[ -d "${dst_dir}" ]] || { echo "Missing directory: ${dst_dir}" >&2; exit 1; }
             [[ -f "${src_file}" ]] || { echo "Missing file: ${src_file}" >&2; exit 1; }
-            echo "Preflight OK: ${app} (${src_file} -> ${dst_dir}/version.yaml)"
+            [[ -f "${dst_file}" ]] || { echo "Missing file: ${dst_file}" >&2; exit 1; }
+            echo "Preflight OK: ${app} (${src_file} -> ${dst_file})"
           done
 
           # Promote

@@ -10,22 +10,20 @@ This repo ships with **two Terraform stacks** for running ArgoCD platforms:
 - `charts/`: Helm charts for each app.
 - `values/`: **env-specific values and overlays** (`values/<app>/<env/values.yaml`, `values/<app>/<env>/version.yaml`).
 
-## GitHub Actions: deploy-dev (auto bump via PR)
+## GitOps CI/CD Patterns
 
-The workflow at `.github/workflows/deploy-dev.yml` automates **dev deployments** by:
+- **Build changed services (`.github/workflows/build.yml`)**: On pushes to `main` that touch `apps/**`, paths-filter detects only the changed app directories and builds/pushes GHCR images tagged with the short SHA. An artifact (`changed-apps.json`) lists which apps moved.
+- **Bump dev with the built tag (`gitops-bump-tags`)**: The follow-on workflow `.github/workflows/gitops-promote.yml` listens for successful `build.yml` runs, reads the `changed-apps.json` artifact, and uses the composite action `./.github/actions/gitops-bump-tags` to write that same tag into each `values/<app>/dev-us/version.yaml`. This job targets the `development` environment.
+- **Gated prod promotion of the same tag (`gitops-promote`)**: After dev bumps, the same workflow pauses on the `production` environment gate before writing the identical tag into `values/<app>/prod-us/version.yaml`. Configure environment protection rules to require manual approval, ensuring prod only moves when explicitly approved.
 
-- **Trigger**: on push to `main` when files under `apps/**` change.
-- **Build & push**: builds Docker images for changed apps and pushes them to **GHCR** tagged with the **short commit SHA**.
-- **GitOps bump**: updates `values/<app>/dev-us/version.yaml` to set `image.tag: <short-sha>`.
-- **PR-based change**: creates (or updates) a single PR from branch `deploy/dev` titled **"deploy: dev"** containing only the version bumps.
+> The legacy PR-based dev deploy flow remains documented below for teams that prefer that pattern.
 
-### Required repository setting
+## Manual promotions (copy tags + settings between envs)
 
-In the GitHub repo settings, ensure **Actions → General → Workflow permissions** has **"Allow GitHub Actions to create and approve pull requests"** checked; otherwise the PR creation/update step will fail.
-
-### What the PR looks like
-
-![deploy-dev PR example](docs/screenshots/deploy-dev-pr.png)
+- Use the manual dispatch workflow `.github/workflows/promote.yml` to promote either direction (e.g., `dev-us → prod-us` or `prod-us → dev-us`) per app.
+- Inputs let you choose the app (`web-ui` or `api`), source/target envs, and whether to copy just the container tag (`version.yaml`) or also the overlay settings (`settings.yaml`).
+- The workflow copies `values/<app>/<source_env>/version.yaml` to the target when `promote_container` is true and copies `settings.yaml` when `promote_configmaps` is true, then auto-commits.
+- Handy for manual cherry-picks, rollbacks, or syncing lower envs to prod settings.
 
 
 ## ArgoCD - how env overlays and the ApplicationSets work

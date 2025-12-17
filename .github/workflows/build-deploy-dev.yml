@@ -1,0 +1,152 @@
+# This is the old workflow for deploying the dev environment.
+# This workflow just demonstrates how to build and push images to GHCR and then bump the version.yaml file.
+# The bump is done by creating a PR with the changes.
+name: Build changed apps + PR deploy bump (dev)
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "apps/**"
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+
+concurrency:
+  group: deploy-bump-dev
+  cancel-in-progress: true
+
+env:
+  ENV_NAME: dev-us
+  # NOTE: GHCR requires repository names to be lowercase.
+  # We compute a lowercase IMAGE_BASE inside jobs via bash (cannot lowercase in expressions reliably here).
+  IMAGE_BASE: ghcr.io/${{ github.repository }}
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      # JSON array of app names (e.g. ["web-ui"]) used directly for the build matrix
+      apps_json: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect changed apps (paths-filter)
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          # Compare the pushed commits range: before..sha
+          base: ${{ github.event.before }}
+          ref: ${{ github.sha }}
+          filters: |
+            web-ui:
+              - 'apps/web-ui/**'
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.apps_json != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.detect.outputs.apps_json) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Make sure the repo url is lowercase
+      - name: Compute lowercase image base
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "IMAGE_BASE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Get short SHA
+        id: get_sha
+        shell: bash
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/${{ matrix.app }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_BASE }}/${{ matrix.app }}:${{ steps.get_sha.outputs.sha }}
+          provenance: false
+
+  bump-pr:
+    needs: [detect, build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get short SHA
+        id: get_sha
+        shell: bash
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Install yq
+        uses: mikefarah/yq@v4
+
+      - name: Update values/*/dev-us/version.yaml for built apps
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t APPS < <(echo '${{ needs.detect.outputs.apps_json }}' | jq -r '.[]')
+          if [[ ${#APPS[@]} -eq 0 ]]; then
+            echo "No changed apps detected; nothing to bump."
+            exit 0
+          fi
+
+          export IMAGE_TAG='${{ steps.get_sha.outputs.sha }}'
+          for app in "${APPS[@]}"; do
+
+            # Repo layout: values/<app>/<env>/version.yaml
+            version_file="values/${app}/${ENV_NAME}/version.yaml"
+
+            if [[ ! -f "$version_file" ]]; then
+              echo "Missing version file for app '$app': $version_file" >&2
+              exit 1
+            fi
+
+            # Update the *tag* (not digest/ref) without rewriting the whole file.
+            yq -i '.image.tag = strenv(IMAGE_TAG)' "$version_file"
+
+            echo "Updated $version_file -> tag=${{ steps.get_sha.outputs.sha }}"
+          done
+
+      - name: Create or update deploy PR (dev)
+        uses: peter-evans/create-pull-request@v6
+        with:
+          # Stable branch name so we update the same PR if it already exists
+          branch: deploy/dev
+          delete-branch: false
+
+          title: "deploy: dev"
+          commit-message: "deploy: dev -> ${{ steps.get_sha.outputs.sha }}"
+          body: |
+            Automated dev deployment bump for ArgoCD.
+
+            Bumped images for changed apps based on commit `${{ github.sha }}` (short: `${{ steps.get_sha.outputs.sha }}`).
+          labels: |
+            deploy
+            argocd
+            dev
+          add-paths: |
+            values/*/dev-us/version.yaml
