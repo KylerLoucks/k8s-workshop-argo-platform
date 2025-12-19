@@ -58,27 +58,47 @@ runs:
           version_file="values/${app}/${ENV_NAME}/version.yaml"
           [[ -f "$version_file" ]] || { echo "Missing version file for app '$app': $version_file" >&2; exit 1; }
 
+          changed=0
+          
           # Version files are not uniform:
           # - some use: image.tag
           # - others use: service.image.tag
           if [[ "$(yq e '.service.image.tag' "$version_file")" != "null" ]]; then
-            yq -i '.service.image.tag = strenv(IMAGE_TAG)' "$version_file"
+            current_image_tag="$(yq e '.service.image.tag' "$version_file")"
+            if [[ "$current_image_tag" != "$IMAGE_TAG" ]]; then
+              yq -i '.service.image.tag = strenv(IMAGE_TAG)' "$version_file"
+              changed=1
+            fi
           elif [[ "$(yq e '.image.tag' "$version_file")" != "null" ]]; then
-            yq -i '.image.tag = strenv(IMAGE_TAG)' "$version_file"
+            current_image_tag="$(yq e '.image.tag' "$version_file")"
+            if [[ "$current_image_tag" != "$IMAGE_TAG" ]]; then
+              yq -i '.image.tag = strenv(IMAGE_TAG)' "$version_file"
+              changed=1
+            fi
           else
             echo "No supported image tag key found in $version_file (expected image.tag or service.image.tag)" >&2
             exit 1
           fi
 
-          # Migrations tag is optional; update it if present.
+          # Update migrations image tag
           export MIGRATION_TAG="${app}-${IMAGE_TAG}"
           if [[ "$(yq e '.service.migrations.image.tag' "$version_file")" != "null" ]]; then
-            yq -i '.service.migrations.image.tag = strenv(MIGRATION_TAG)' "$version_file"
+            current_migration_tag="$(yq e '.service.migrations.image.tag' "$version_file")"
+            if [[ "$current_migration_tag" != "$MIGRATION_TAG" ]]; then
+              yq -i '.service.migrations.image.tag = strenv(MIGRATION_TAG)' "$version_file"
+              changed=1
+            fi
           elif [[ "$(yq e '.migrations.image.tag' "$version_file")" != "null" ]]; then
-            yq -i '.migrations.image.tag = strenv(MIGRATION_TAG)' "$version_file"
+            current_migration_tag="$(yq e '.migrations.image.tag' "$version_file")"
+            if [[ "$current_migration_tag" != "$MIGRATION_TAG" ]]; then
+              yq -i '.migrations.image.tag = strenv(MIGRATION_TAG)' "$version_file"
+              changed=1
+            fi
           fi
 
-          updated=$((updated + 1))
+          if [[ $changed -eq 1 ]]; then
+            updated=$((updated + 1))
+          fi
         done
 
         if [[ $updated -eq 0 ]]; then
