@@ -93,18 +93,14 @@ helm:
   - When ready to promote, copy the tag from lower env to higher env by copying the version file (or just its `image.tag`) from `dev-us` to `prod-us` and commit.
   - Argo CD will detect the change (via webhook or poll) and sync, deploying the new version to the target environment.
 
+## Rollbacks (simple & auditable)
+Git revert the commit that changed the `version.yaml` → Argo CD rolls back to the prior image.
+(Optional) keep an Argo Rollouts canary/blue-green strategy for safer Prod flips.
+
 ## CI flow using Image Updater (Dev via Image Updater, promotions via version.yaml)
 
 - Dev environments (e.g., dev-us): Argo CD Image Updater watches your dev Application and writes back the latest image tag to the env’s `version.yaml` in Git (write-back: git). Argo then syncs dev automatically.
 - Higher environments (e.g., staging/prod): promotions are explicit. CI reads the tag from the build step and commits to the respective envs `version.yaml`
-
-### Rollbacks (simple & auditable)
-Git revert the commit that changed the `version.yaml` (UAT or Prod) → Argo CD rolls back to the prior image.
-(Optional) keep an Argo Rollouts canary/blue-green strategy for safer Prod flips.
-
-Why this pattern
-- Dev moves fast automatically; prod remains gated and predictable.
-- Only the tag file (version.yaml) changes per promotion; overlays (replicas/resources/ingress) are stable per env.
 
 Minimal GitHub Actions shape
 
@@ -112,9 +108,11 @@ Minimal GitHub Actions shape
 - Dev CD: CI/Image Updater bumps `values/<app>/dev-us/version.yaml` → Argo CD syncs
 - Promote: github action `environment` gates → after approval, workflow commits tag to version.yaml → Argo CD syncs
 
+Why this pattern
+- Dev moves fast automatically; prod remains gated and predictable.
+- Only the tag file (version.yaml) changes per promotion; overlays (replicas/resources/ingress) are stable per env.
 
-### Manual Promotion
-Workflow Dispatch (`.github/workflows/promote.yml`) pass in  the lower env’s and higher env's name. The workflow will grab the lower env's `version.yaml` and copy it to the higher env’s `version.yaml`, then commits to the branch Argo watches. Argo detects the change and deploys.
+
 
 ## Notes
 - Ensure your ApplicationSet lists `values/<app>/<env>/version.yaml` last in `helm.valueFiles` so it wins merges.
