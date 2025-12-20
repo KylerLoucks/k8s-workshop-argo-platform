@@ -239,3 +239,8 @@ module "argocd" {
     data.kubernetes_secret_v1.argocd_manager_token,
   ]
 }
+
+module "argocd_image_updater" {
+  source = "../modules/argocd-image-updater"
+  create_role = false
+}

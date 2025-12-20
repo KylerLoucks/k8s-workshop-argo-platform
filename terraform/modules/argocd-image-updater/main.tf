@@ -23,9 +23,9 @@ locals {
   iam_role_policy_prefix = "arn:${local.partition}:iam::aws:policy"
 
   # Canonical role ARN (created or provided)
-  image_updater_role_arn = coalesce(one(aws_iam_role.image_updater[*].arn), var.image_updater_iam_role_arn)
+  image_updater_role_arn = coalesce(one(aws_iam_role.image_updater[*].arn), var.iam_role_arn)
 
-  attach_default_image_updater_policies = local.create_role && var.image_updater_attach_default_policies
+  attach_default_image_updater_policies = local.create_role && var.attach_default_policies
 
   image_updater_iam_role_policies = { for k, v in {
     AmazonEC2ContainerRegistryReadOnly = "${local.iam_role_policy_prefix}/AmazonEC2ContainerRegistryReadOnly",
@@ -42,28 +42,30 @@ locals {
 data "aws_iam_policy_document" "image_updater_assume_role_policy" {
   count = local.create_role ? 1 : 0
 
-  statement {
-    sid     = "ImageUpdaterAssumeRoleWithWebIdentity"
-    effect  = "Allow"
-    actions = ["sts:AssumeRoleWithWebIdentity"]
+  dynamic "statement" {
+    for_each = var.oidc_providers
 
-    principals {
-      type        = "Federated"
-      identifiers = [var.image_updater_irsa_oidc_provider_arn]
-    }
+    content {
+      effect  = "Allow"
+      actions = ["sts:AssumeRoleWithWebIdentity"]
 
-    condition {
-      test     = "StringEquals"
-      variable = "${replace(var.image_updater_irsa_oidc_provider_url, "https://", "")}:aud"
-      values   = ["sts.amazonaws.com"]
-    }
+      principals {
+        type        = "Federated"
+        identifiers = [statement.value.provider_arn]
+      }
 
-    condition {
-      test     = "StringEquals"
-      variable = "${replace(var.image_updater_irsa_oidc_provider_url, "https://", "")}:sub"
-      values = [
-        "system:serviceaccount:${local.image_updater_namespace}:${var.image_updater_service_account_name}",
-      ]
+      condition {
+        test     = "StringEquals"
+        variable = "${replace(statement.value.provider_arn, "/^(.*provider/)/", "")}:sub"
+        values   = [for sa in statement.value.namespace_service_accounts : "system:serviceaccount:${sa}"]
+      }
+
+      # https://aws.amazon.com/premiumsupport/knowledge-center/eks-troubleshoot-oidc-and-irsa/?nc1=h_ls
+      condition {
+        test     = "StringEquals"
+        variable = "${replace(statement.value.provider_arn, "/^(.*provider/)/", "")}:aud"
+        values   = ["sts.amazonaws.com"]
+      }
     }
   }
 }
@@ -72,7 +74,7 @@ resource "aws_iam_role" "image_updater" {
   count = local.create_role ? 1 : 0
 
   name        = try(var.image_updater.iam_role_use_name_prefix, false) ? null : local.iam_role_name
-  name_prefix = try(var.image_updater.iam_role_use_name_prefix, false) ? "${local.iam_role_name}${var.prefix_separator}" : null
+  name_prefix = try(var.image_updater.iam_role_use_name_prefix, false) ? "${local.iam_role_name}-" : null
   path        = coalesce(try(var.image_updater.iam_role_path, null), "/")
   description = coalesce(try(var.image_updater.iam_role_description, null), "IRSA role for Argo CD Image Updater")
 
@@ -80,19 +82,19 @@ resource "aws_iam_role" "image_updater" {
   permissions_boundary  = try(var.image_updater.iam_role_permissions_boundary, null)
   force_detach_policies = true
 
-  tags = merge(var.tags, var.iam_role_tags)
+  tags = var.tags
 }
 
 # Policies attached ref https://docs.aws.amazon.com/eks/latest/userguide/service_IAM_role.html
 resource "aws_iam_role_policy_attachment" "image_updater_default" {
-  for_each = local.image_updater_iam_role_policies
+  for_each = local.create_role ? local.image_updater_iam_role_policies : {}
 
   policy_arn = each.value
   role       = aws_iam_role.image_updater[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "image_updater_additional" {
-  for_each = local.create_role ? var.image_updater_additional_policy_arns : {}
+  for_each = local.create_role ? var.additional_policy_arns : {}
 
   policy_arn = each.value
   role       = aws_iam_role.image_updater[0].name

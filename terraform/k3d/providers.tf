@@ -1,17 +1,3 @@
-provider "aws" {
-  skip_metadata_api_check = true
-  skip_region_validation = true
-  skip_requesting_account_id = true
-  skip_credentials_validation = true
-  region = "us-east-1"
-  dynamic "assume_role" {
-    for_each = []
-    content {
-      role_arn = ""
-    }
-  }
-}
-
 provider "kubernetes" {
   config_path    = local.kubeconfig_path
   config_context = local.management_context
