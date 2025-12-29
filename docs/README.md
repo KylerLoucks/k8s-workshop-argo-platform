@@ -8,6 +8,7 @@ I would always advise to use the [trunk-based development](https://trunkbaseddev
 
 > [!NOTE] 
 > `Build` workflow triggers on PRs open into main branch and pushes to main:
+> ```yml
 > on:
 >   push:
 >     branches: ["main"]
@@ -15,6 +16,7 @@ I would always advise to use the [trunk-based development](https://trunkbaseddev
 >     branches: ["main"]
 >     types: [opened, synchronize, reopened]
 >   workflow_dispatch:
+> ```
 >
 
 2. Trigger composite action (see below), passing in image tag from `Build` workflow
