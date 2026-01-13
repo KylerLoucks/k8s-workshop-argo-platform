@@ -588,11 +588,16 @@ runs:
           diff=""
         fi
 
-        # Add fmt section (show when format enabled and output exists)
-        if [[ ("${{ inputs.format }}" == "true" || "${{ inputs.format }}" == true) && -s tf.fmt.txt ]]; then
+        # Add fmt section (always show when format enabled, mirror lint pattern)
+        if [[ ("${{ inputs.format }}" == "true" || "${{ inputs.format }}" == true) ]]; then
           fmt_summary="${{ steps.format.outputs.summary }}"
-          fmt_console=$(head --bytes=20000 tf.fmt.txt)
-          if [[ ${#fmt_console} -eq 20000 ]]; then fmt_console="${fmt_console}"$'\n…'; fi
+          if [[ -s tf.fmt.txt ]]; then
+            fmt_console=$(head --bytes=20000 tf.fmt.txt)
+            if [[ ${#fmt_console} -eq 20000 ]]; then fmt_console="${fmt_console}"$'\n…'; fi
+          else
+            fmt_console="${fmt_summary:-✅ No issues found}"
+          fi
+
           fmt_section="
         <details${{ env.INPUTS_EXPAND_FMT == 'true' && ' open' || '' }}><summary>📝 Formatting: ${fmt_summary}</summary>
 
