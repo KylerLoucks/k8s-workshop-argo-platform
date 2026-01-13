@@ -851,6 +851,10 @@ inputs:
     default: "false"
     description: "Expand the collapsible summary section (e.g., `false`)."
     required: false
+  expand-fmt:
+    default: "false"
+    description: "Expand the collapsible formatting section (e.g., `false`)."
+    required: false
   format:
     default: "false"
     description: "Check format of TF code (e.g., `false`)."
