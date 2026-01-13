@@ -154,11 +154,11 @@ runs:
         fmt_exit=${PIPESTATUS[0]}
         # Capture files needing formatting (lines ending with .tf from fmt output).
         grep -E "\.tf$" tf.fmt.txt | sed 's/^[[:space:]]*//' > tf.fmt.files.txt || true
-        fmt_summary="Format: ✅ No formatting changes required"
+        fmt_summary="✅ No formatting changes required"
         if [[ "$fmt_exit" -eq 3 ]]; then
           fmt_summary="❌ Formatting issues found - Run terraform fmt"
         elif [[ "$fmt_exit" -ne 0 ]]; then
-          fmt_summary="Format: ⚠️ terraform fmt exited $fmt_exit"
+          fmt_summary="⚠️ terraform fmt exited $fmt_exit"
         fi
         echo "summary=$fmt_summary" >> "$GITHUB_OUTPUT"
         echo "exit_code=${fmt_exit}" >> "$GITHUB_OUTPUT"
