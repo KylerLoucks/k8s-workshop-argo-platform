@@ -220,19 +220,20 @@ module "argocd" {
     }
   }
 
-  repositories = {
-    kubernetes = {
-      repo       = "https://github.com/KylerLoucks/kubernetes.git"
-      project    = "default"
-      name       = "kubernetes"
-      enable_lfs = false
-      insecure   = false
+  # repositories = {
+  #   kubernetes = {
+  #     repo       = "https://github.com/KylerLoucks/kubernetes.git"
+  #     project    = "default"
+  #     name       = "kubernetes"
+  #     enable_lfs = false
+  #     insecure   = false
 
-      github_app_id              = "2393963"
-      github_app_installation_id = "97557408"
-      github_app_private_key     = file("~/.ssh/argoapp-private-key.pem") # Github App Secret
-    }
-  }
+  #     github_app_id              = "2393963"
+  #     github_app_installation_id = "97557408"
+  #     github_app_private_key     = file("~/.ssh/argoapp-private-key.pem") # Github App Secret
+  #   }
+  # }
+
 
 
   depends_on = [
@@ -240,7 +241,7 @@ module "argocd" {
   ]
 }
 
-module "argocd_image_updater" {
-  source = "../modules/argocd-image-updater"
-  create_role = false
-}
+# module "argocd_image_updater" {
+#   source = "../modules/argocd-image-updater"
+#   create_role = false
+# }
