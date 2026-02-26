@@ -79,6 +79,33 @@ You need to port forward the UI and run terraform apply again. You can port-forw
 kubectl --context k3d-management -n argocd port-forward svc/argocd-server 8080:80
 ```
 
+## Troubleshooting
+
+### GHCR Helm chart auth errors
+
+If Argo CD cannot pull a Helm chart from GHCR, check the status code first:
+
+- `403 denied`: make sure the token used for the GHCR repo has `read:packages`.
+- `401 unauthorized`: make sure the application source points to the correct `repoURL`.
+
+If `401 unauthorized` continues after credential changes, it can also be caused by stale
+repository metadata cached in Argo CD components.
+
+Try these steps in order:
+
+1. Force an app refresh:
+   ```bash
+   argocd app get dev-web-ui --hard-refresh
+   ```
+2. Restart the repo server:
+   ```bash
+   kubectl --context k3d-management -n argocd rollout restart deploy/argocd-repo-server
+   ```
+3. If the error persists, restart Redis cache (this was required in our local k3d setup):
+   ```bash
+   kubectl --context k3d-management -n argocd rollout restart deploy/argocd-redis
+   ```
+
 ## Outputs
 - `k3d_kube_contexts`: the management/prod contexts Terraform expects.
 - `argocd_release`: Helm release metadata (version, namespace, etc.)
