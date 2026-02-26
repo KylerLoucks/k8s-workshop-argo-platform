@@ -1,6 +1,7 @@
 replicaCount: 1
 
 image:
+  repository: ghcr.io/kylerloucks/k8s-workshop-argo-platform/web-ui
   # inherit repository/tag/digest from base unless you need to override
   pullPolicy: IfNotPresent
 
